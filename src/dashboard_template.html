@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NFL Position Value</title>
+<style>
+/* Layout: one column, summary first. A single filter row scopes everything below it; charts sit on surface
+   cards, text sits on the page plane. Marks follow the dataviz mark specs (thin, hairline grid, 2px rings). */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;  --surface: #fcfcfb;
+  --ink: #0b0b0b;   --ink2: #52514e;   --muted: #898781;
+  --grid: #e1e0d9;  --axis: #c3c2b7;   --border: rgba(11,11,11,.10);
+  --s1: #2a78d6;    --s2: #eb6834;     --neutral: #f0efec;
+  --wash: rgba(42,120,214,.08);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+    --s1: #3987e5; --s2: #d95926; --neutral: #383835;
+    --wash: rgba(57,135,229,.14);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19;
+  --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+  --s1: #3987e5; --s2: #d95926; --neutral: #383835;
+  --wash: rgba(57,135,229,.14);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 var(--sans); }
+.wrap { max-width: 1080px; margin-inline: auto; padding-inline: 16px; padding-block: 28px 56px; }
+h1 { font-size: clamp(1.6rem, 3.6vw, 2.2rem); line-height: 1.15; margin: 0 0 8px; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 1.2rem; margin: 0 0 4px; letter-spacing: -0.005em; }
+p { margin: 0; }
+.sub { color: var(--ink2); max-width: 68ch; }
+.lead { margin-top: 20px; display: grid; gap: 10px; max-width: 76ch; padding: 0; list-style: none; }
+.lead li { padding-left: 14px; position: relative; color: var(--ink2); }
+.lead li::before { content: ""; position: absolute; left: 0; top: .62em; width: 6px; height: 6px; border-radius: 50%; background: var(--s1); }
+.lead b { color: var(--ink); font-weight: 600; }
+
+/* filter row */
+.filters { margin-top: 24px; background: var(--page);
+  padding-block: 10px; border-bottom: 1px solid var(--grid); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+.field { display: grid; gap: 3px; min-width: 0; }
+.field label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+select, button { font: inherit; color: var(--ink); }
+select { min-height: 36px; padding: 0 28px 0 10px; border: 1px solid var(--axis); border-radius: 6px; background: var(--surface); max-width: 100%; }
+select:hover { background: var(--wash); }
+button.link { min-height: 36px; padding: 0 10px; border: 0; background: none; color: var(--ink2); cursor: pointer; border-radius: 6px; }
+button.link:hover { background: var(--wash); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+
+/* sticky only where the bar fits on one row and leaves room to read */
+@media (min-width: 1000px) and (min-height: 700px) { .filters { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; } }
+
+/* sections and cards */
+section { margin-top: 40px; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 8px 16px; margin-bottom: 12px; }
+.head p { color: var(--ink2); max-width: 70ch; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 10px; min-width: 0; }
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden; flex: none; }
+.seg button { border: 0; background: none; padding: 5px 12px; cursor: pointer; font-size: .85rem; color: var(--ink2); }
+.seg button[aria-pressed="true"] { background: var(--wash); color: var(--ink); font-weight: 600; }
+.chart { width: 100%; min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.scroll-x { overflow-x: auto; }
+.keyrow { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; color: var(--ink2); font-size: .85rem; align-items: center; }
+.k { display: inline-flex; align-items: center; gap: 6px; }
+.note { margin-top: 10px; color: var(--ink2); font-size: .9rem; max-width: 80ch; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 14px; align-items: start; }
+.stat { display: grid; gap: 12px; }
+.stat .card { padding: 12px 14px; }
+.stat h3 { margin: 0 0 6px; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.stat .big { font-size: 1.7rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
+.stat .small { color: var(--ink2); font-size: .85rem; margin-top: 4px; }
+@media (max-width: 820px) { .two { grid-template-columns: minmax(0, 1fr); } }
+
+/* chart text and marks */
+svg text { font-family: var(--sans); fill: var(--ink2); font-size: 12px; }
+svg .t-ink { fill: var(--ink); }
+svg .t-muted { fill: var(--muted); }
+svg .t-strong { fill: var(--ink); font-weight: 600; }
+.grid { stroke: var(--grid); stroke-width: 1; }
+.axis { stroke: var(--axis); stroke-width: 1; }
+.whisker { stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+.ring { fill: var(--surface); }
+.dot-sig { fill: var(--s1); }
+.dot-ns { fill: var(--surface); stroke: var(--s1); stroke-width: 2; }
+.band { fill: var(--wash); }
+.hit { fill: transparent; cursor: pointer; }
+.pt { fill: var(--s1); fill-opacity: .55; stroke: var(--surface); stroke-width: 2; paint-order: stroke; }
+.pt.dim { fill-opacity: .18; }
+.pt.hl { fill: var(--s2); fill-opacity: 1; }
+.trend { stroke: var(--ink2); stroke-width: 2; stroke-linecap: round; opacity: .75; }
+.col-pos { fill: var(--s1); } .col-neg { fill: var(--s2); }
+.cell-pos { fill: var(--s1); } .cell-neg { fill: var(--s2); } .cell-base { fill: var(--neutral); }
+.cell:hover, .col:hover { stroke: var(--ink); stroke-width: 1.5; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+/* tables */
+.tablewrap { max-height: 420px; overflow: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 500; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; }
+
+/* tooltip */
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--axis);
+  border-radius: 8px; padding: 8px 10px; font-size: .82rem; max-width: 260px; box-shadow: 0 6px 20px rgba(0,0,0,.14); display: none; }
+#tip .v { font-size: 1rem; font-weight: 600; }
+#tip .r { color: var(--ink2); margin-top: 2px; }
+
+/* beyond the model */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.facts .card { padding: 14px; }
+.facts .big { font-size: 1.9rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; }
+.facts p { color: var(--ink2); font-size: .88rem; margin-top: 6px; }
+.method { color: var(--ink2); font-size: .9rem; max-width: 80ch; display: grid; gap: 8px; }
+.method b { color: var(--ink); font-weight: 600; }
+footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Which NFL positions are worth paying for?</h1>
+    <p class="sub">Salary-cap spending by position against team results, 2013&ndash;2025: 416 team-seasons, 32 teams. Starters are separated from bench depth using snap counts.</p>
+    <ul class="lead">
+      <li><b>Quarterback is the clearest payoff,</b> and it works through the passing game. It holds up against rookie-contract QBs and under six different definitions of &ldquo;starter&rdquo;.</li>
+      <li><b>Spend lines up with the right side of the ball.</b> WR and OL help the offense. EDGE and CB help the defense, through pass defense. Interior DL helps against the run.</li>
+      <li><b>Tight end looks valuable until you notice it also &ldquo;improves&rdquo; the defense.</b> That cannot be real, so treat the TE result as noise.</li>
+      <li><b>Cap allocation explains only about 10% of team results.</b> Injuries, schedule and luck do most of the rest.</li>
+    </ul>
+  </header>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <div class="field"><label for="f-outcome">Outcome</label>
+      <select id="f-outcome"><option value="pd">Point differential</option><option value="off">Offense EPA</option><option value="dfn">Defense EPA</option></select></div>
+    <div class="field"><label for="f-pos">Position</label><select id="f-pos"></select></div>
+    <div class="field"><label for="f-from">From</label><select id="f-from"></select></div>
+    <div class="field"><label for="f-to">To</label><select id="f-to"></select></div>
+    <div class="field"><label for="f-team">Team</label><select id="f-team"></select></div>
+    <button class="link" id="reset" type="button">Reset</button>
+  </div>
+
+  <section id="s-find" aria-labelledby="h-find">
+    <div class="head">
+      <div>
+        <h2 id="h-find">What the money buys</h2>
+        <p>Estimated effect of moving one point of cap share (about $1.6M for an average team) from bench depth into this position&rsquo;s starters, holding every other position fixed. Uses all seasons.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Findings view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
+    </div>
+    <div class="card">
+      <div class="chart" id="find-chart"></div>
+      <div class="keyrow" id="find-key">
+        <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" class="dot-sig"/></svg>Significant at 5%</span>
+        <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4" class="dot-ns"/></svg>Not significant</span>
+        <span class="k">Lines are 95% intervals. Click a row to explore it below.</span>
+      </div>
+    </div>
+    <p class="note" id="find-note"></p>
+  </section>
+
+  <section id="s-exp" aria-labelledby="h-exp">
+    <div class="head">
+      <div><h2 id="h-exp">Position explorer</h2><p id="exp-sub"></p></div>
+      <div class="seg" role="group" aria-label="Explorer view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
+    </div>
+    <div class="two">
+      <div class="card">
+        <div class="chart" id="exp-chart"></div>
+        <div class="keyrow">
+          <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" class="pt"/></svg>One team-season</span>
+          <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" class="pt hl"/></svg>Highlighted team (hover, click to pin)</span>
+          <span class="k"><svg width="22" height="14" aria-hidden="true"><line x1="2" y1="7" x2="20" y2="7" class="trend"/></svg>Trend after removing season averages</span>
+        </div>
+      </div>
+      <div class="stat" id="exp-stat"></div>
+    </div>
+  </section>
+
+  <section id="s-team" aria-labelledby="h-team">
+    <div class="head">
+      <div><h2 id="h-team">Team explorer</h2><p id="team-sub"></p></div>
+      <div class="seg" role="group" aria-label="Team view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
+    </div>
+    <div class="card">
+      <div class="chart scroll-x" id="team-chart"></div>
+      <div class="keyrow" id="team-key">
+        <span class="k"><span class="sw" style="background:var(--s1)"></span>Above 0 / spending above league average</span>
+        <span class="k"><span class="sw" style="background:var(--s2)"></span>Below 0 / spending below league average</span>
+        <span class="k">Heatmap shade is scaled to how much that position&rsquo;s share varies across teams.</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-beyond">
+    <div class="head"><div><h2 id="h-beyond">Beyond the model: injuries and depth</h2><p>From the notebook (sections 9 and 10). Bench spending looked wasteful at first; most of it is injury cost.</p></div></div>
+    <div class="facts">
+      <div class="card"><div class="big">&minus;5 pts</div><p>per game when the starting QB misses 8 weeks. Each missed week costs about 0.64.</p></div>
+      <div class="card"><div class="big">&le; 1/5</div><p>of that damage is what a $5M backup QB could recover. A precise &ldquo;no&rdquo; for big effects, not small ones.</p></div>
+      <div class="card"><div class="big">~0</div><p>carry-over: last year&rsquo;s injured-reserve money does not predict this year&rsquo;s results. It is an injury effect, not a bad roster.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-method">
+    <div class="head"><div><h2 id="h-method">How to read this</h2></div></div>
+    <div class="method">
+      <p><b>Data.</b> Per-player cap hits (Over the Cap), snap counts, results and EPA/play from nflverse, 2013&ndash;2025. Cap share is a position&rsquo;s cap divided by the team&rsquo;s tracked cap, which is only part of the official cap.</p>
+      <p><b>Starter</b> means the top-N players at a position by snaps (QB1, RB1, WR3, TE1, OL5, DL2, EDGE2, LB2, CB3, S2). Everyone else is bench.</p>
+      <p><b>Estimates</b> come from one regression per outcome with all positions together, season fixed effects and standard errors clustered by team. The k/6 column counts how many of six starter definitions keep the result significant at 5%. EPA is per 100 plays; defense is flipped so higher is better.</p>
+      <p><b>Caution.</b> These are associations, not causal effects. Ten positions across several outcomes means a few significant results are expected by chance. The full write-up, with all checks, is in <code>analysis.ipynb</code>.</p>
+    </div>
+  </section>
+  <footer>Rebuild with <code>python src/build_dashboard.py</code>. Numbers on this page are generated from the same data and models as the notebook.</footer>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const DATA = __DATA__;
+(function () {
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+const $ = (s, r = document) => r.querySelector(s);
+const POS = DATA.pos;
+const OUT = {
+  pd:  { label: "Point differential", lc: "point differential", unit: "points per game", short: "pts/game", dec: 1 },
+  off: { label: "Offense EPA",        lc: "offense EPA", unit: "EPA per 100 plays", short: "EPA/100", dec: 1 },
+  dfn: { label: "Defense EPA",        lc: "defense EPA", unit: "EPA per 100 plays (higher = better defense)", short: "EPA/100", dec: 1 },
+};
+const POSNAME = { QB: "Quarterback", RB: "Running back", WR: "Wide receiver", TE: "Tight end", OL: "Offensive line", DL: "Interior DL", EDGE: "Edge rusher", LB: "Linebacker", CB: "Cornerback", S: "Safety" };
+const NOTE = {
+  pd: "Quarterback is the clearest payoff. Tight end has the largest estimate and is stable across starter definitions, but it fails the offense-versus-defense test (switch to Defense EPA): stability is not evidence against noise.",
+  off: "QB, WR and OL help the offense. Defensive positions show nothing here, as they should.",
+  dfn: "EDGE, CB and interior DL help the defense. Tight end should show nothing here, but it shows a significant effect, so its other results are probably noise.",
+};
+const DEFAULTS = { outcome: "pd", pos: "QB", from: DATA.seasons[0], to: DATA.seasons[1], team: "KC" };
+const state = Object.assign({ view: { find: "chart", exp: "chart", team: "chart" }, pinned: null, hover: null }, DEFAULTS);
+
+/* ---------- helpers ---------- */
+function s(tag, attrs, kids) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in (attrs || {})) { if (k === "text") e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  (kids || []).forEach(c => e.appendChild(c));
+  return e;
+}
+function h(tag, attrs, kids) {
+  const e = document.createElement(tag);
+  for (const k in (attrs || {})) { if (k === "text") e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  (kids || []).forEach(c => e.appendChild(c));
+  return e;
+}
+const fmt = (v, d = 1) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
+const fmtP = p => p < 0.001 ? "p < 0.001" : "p = " + p.toFixed(3);
+function linear(d0, d1, r0, r1) { const f = v => r0 + (v - d0) / (d1 - d0) * (r1 - r0); f.inv = p => d0 + (p - r0) / (r1 - r0) * (d1 - d0); return f; }
+function niceTicks(lo, hi, n) {
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0))), norm = step0 / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const ticks = []; for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) ticks.push(+v.toFixed(10));
+  return { ticks, dec: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)) };
+}
+function barPath(x, w, yBase, yEnd, r) {
+  const up = yEnd < yBase, hgt = Math.abs(yEnd - yBase); r = Math.min(r, hgt, w / 2);
+  const e = up ? yEnd + r : yEnd - r;
+  return `M${x},${yBase} V${e} Q${x},${yEnd} ${x + r},${yEnd} H${x + w - r} Q${x + w},${yEnd} ${x + w},${e} V${yBase} Z`;
+}
+function width(el) { return Math.max(300, Math.floor(el.clientWidth || 640)); }
+
+/* ---------- tooltip ---------- */
+const tip = $("#tip");
+function showTip(x, y, value, rows) {
+  tip.replaceChildren(h("div", { class: "v", text: value }), ...rows.map(t => h("div", { class: "r", text: t })));
+  tip.style.display = "block";
+  const w = tip.offsetWidth, hh = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(x + 14, innerWidth - w - 8)) + "px";
+  tip.style.top = Math.max(8, Math.min(y + 14, innerHeight - hh - 8)) + "px";
+}
+const hideTip = () => { tip.style.display = "none"; };
+
+/* ---------- data ---------- */
+const ROWS = DATA.rows;
+const teams = Object.keys(DATA.teams).sort((a, b) => DATA.teams[a].localeCompare(DATA.teams[b]));
+const league = {};   // season -> mean starter share per position
+const sd = POS.map((_, i) => { const v = ROWS.map(r => r.st[i]), m = v.reduce((a, b) => a + b) / v.length; return Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length); });
+for (const r of ROWS) { (league[r.s] = league[r.s] || { n: 0, sum: POS.map(() => 0) }).n++; r.st.forEach((v, i) => league[r.s].sum[i] += v); }
+const lgMean = (season, i) => league[season].sum[i] / league[season].n;
+const visible = () => ROWS.filter(r => r.s >= state.from && r.s <= state.to);
+function fe(rows, xf, yf) {   // within-season demeaning = season fixed effects
+  const g = {}; rows.forEach(r => { (g[r.s] = g[r.s] || []).push(r); });
+  let sxy = 0, sxx = 0, syy = 0;
+  for (const k in g) {
+    const a = g[k], mx = a.reduce((t, r) => t + xf(r), 0) / a.length, my = a.reduce((t, r) => t + yf(r), 0) / a.length;
+    a.forEach(r => { const dx = xf(r) - mx, dy = yf(r) - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; });
+  }
+  return { slope: sxx ? sxy / sxx : 0, r: sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0 };
+}
+
+/* ---------- table helper ---------- */
+function table(cols, rows) {
+  const t = h("table", {}, [h("thead", {}, [h("tr", {}, cols.map(c => h("th", { text: c })))]), h("tbody", {}, rows.map(r => h("tr", {}, r.map(c => h("td", { text: String(c) })))))]);
+  return h("div", { class: "tablewrap" }, [t]);
+}
+
+/* ---------- 1. findings ---------- */
+function renderFindings() {
+  const host = $("#find-chart"); host.replaceChildren();
+  const o = state.outcome, data = DATA.findings[o].slice().sort((a, b) => b.coef - a.coef);
+  $("#find-note").textContent = NOTE[o] + " Together the positions explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + ".";
+  $("#find-key").hidden = state.view.find === "table";
+  if (state.view.find === "table") {
+    host.appendChild(table(["Position", "Effect (" + OUT[o].short + " per +1 pt cap)", "95% low", "95% high", "p-value", "Significant under (of 6 starter rules)"],
+      data.map(d => [d.pos, fmt(d.coef, 2), fmt(d.lo, 2), fmt(d.hi, 2), d.p < 0.001 ? "<0.001" : d.p.toFixed(3), d.robust + "/6"])));
+    return;
+  }
+  const W = width(host), narrow = W < 520, mL = narrow ? 40 : 56, mR = narrow ? 44 : 128, mT = 30, rowH = 34, mB = 46, H = mT + rowH * data.length + mB;
+  const lo = Math.min(0, ...data.map(d => d.lo)), hi = Math.max(0, ...data.map(d => d.hi)), pad = (hi - lo) * 0.05;
+  const x = linear(lo - pad, hi + pad, mL, W - mR), tk = niceTicks(lo - pad, hi + pad, narrow ? 4 : 6);
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Estimated effect of starter cap share by position on ${OUT[o].lc}. Table view has the numbers.` });
+  tk.ticks.forEach(t => {
+    svg.appendChild(s("line", { class: Math.abs(t) < 1e-9 ? "axis" : "grid", x1: x(t), x2: x(t), y1: mT - 8, y2: H - mB + 6 }));
+    svg.appendChild(s("text", { class: "t-muted", x: x(t), y: H - mB + 22, "text-anchor": "middle", text: tk.dec ? t.toFixed(tk.dec) : String(t) }));
+  });
+  svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 4, "text-anchor": "middle", text: OUT[o].short + " per +1 point of cap share" }));
+  if (!narrow) {
+    svg.appendChild(s("text", { class: "t-muted", x: W - mR + 22, y: mT - 14, text: "Significant under" }));
+    svg.appendChild(s("text", { class: "t-muted", x: W - mR + 22, y: mT - 2, text: "6 starter rules" }));
+  }
+  data.forEach((d, i) => {
+    const cy = mT + rowH * i + rowH / 2, sig = d.p < 0.05, selected = d.pos === state.pos;
+    if (selected) svg.appendChild(s("rect", { class: "band", x: 0, y: cy - rowH / 2 + 1, width: W, height: rowH - 2, rx: 6 }));
+    svg.appendChild(s("text", { class: selected ? "t-strong" : "t-ink", x: 4, y: cy + 4, text: d.pos }));
+    svg.appendChild(s("line", { class: "whisker", x1: x(d.lo), x2: x(d.hi), y1: cy, y2: cy }));
+    svg.appendChild(s("circle", { class: "ring", cx: x(d.coef), cy, r: 7.5 }));
+    svg.appendChild(s("circle", { class: sig ? "dot-sig" : "dot-ns", cx: x(d.coef), cy, r: sig ? 5 : 4 }));
+    svg.appendChild(s("text", { class: "t-ink", x: narrow ? W - mR + 8 : W - mR + 22, y: cy + 4, text: d.robust + "/6", style: "font-variant-numeric:tabular-nums" }));
+    const hit = s("rect", { class: "hit", x: 0, y: cy - rowH / 2, width: W, height: rowH, tabindex: 0, role: "button", "aria-label": `${POSNAME[d.pos]}: effect ${fmt(d.coef, 2)}, ${fmtP(d.p)}. Press to explore.` });
+    const tipRows = () => ["95% interval " + fmt(d.lo, 2) + " to " + fmt(d.hi, 2), fmtP(d.p) + (sig ? "" : " (not significant)"), "Significant under " + d.robust + " of 6 starter definitions"];
+    hit.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()));
+    hit.addEventListener("focus", () => { const b = hit.getBoundingClientRect(); showTip(b.left + 80, b.top, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()); });
+    hit.addEventListener("blur", hideTip); hit.addEventListener("pointerleave", hideTip);
+    const choose = () => { state.pos = d.pos; $("#f-pos").value = d.pos; renderExplorer(); renderFindings(); $("#s-exp").scrollIntoView({ behavior: "smooth", block: "start" }); };
+    hit.addEventListener("click", choose); hit.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } });
+    svg.appendChild(hit);
+  });
+  host.appendChild(svg);
+}
+
+/* ---------- 2. position explorer ---------- */
+function renderExplorer() {
+  const host = $("#exp-chart"), stat = $("#exp-stat"); host.replaceChildren(); stat.replaceChildren();
+  const pi = POS.indexOf(state.pos), o = state.outcome, rows = visible();
+  $("#exp-sub").textContent = `${POSNAME[state.pos]} starters' share of cap against ${OUT[o].lc}, ${state.from}–${state.to} (${rows.length} team-seasons).`;
+  const xf = r => r.st[pi], yf = r => r[o];
+  const f = rows.length > 2 ? fe(rows, xf, yf) : { slope: 0, r: 0 };
+  const mine = DATA.findings[o].find(d => d.pos === state.pos);
+  stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Estimate with other positions held fixed" }),
+    h("div", { class: "big", text: fmt(mine.coef, 2) + " " + OUT[o].short }),
+    h("div", { class: "small", text: `per +1 pt of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions. Uses all seasons.` })]));
+  stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Simple trend in this view" }),
+    h("div", { class: "big", text: fmt(f.slope, 2) + " " + OUT[o].short }),
+    h("div", { class: "small", text: `per +1 pt of cap share, correlation ${f.r.toFixed(2)}, season averages removed. Ignores other positions, so it can differ from the estimate above.` })]));
+  if (state.view.exp === "table") {
+    const sorted = rows.slice().sort((a, b) => xf(b) - xf(a));
+    host.appendChild(table(["Team", "Season", state.pos + " starter share %", state.pos + " starter cap $M", OUT[o].label, "Win %"],
+      sorted.map(r => [r.t, r.s, r.st[pi].toFixed(1), r.usd[pi].toFixed(1), fmt(r[o], 1), r.w.toFixed(3)])));
+    return;
+  }
+  const W = width(host), H = Math.round(Math.min(430, Math.max(300, W * 0.62))), mL = 46, mR = 12, mT = 10, mB = 46;
+  const xs = rows.map(xf), ys = rows.map(yf);
+  const xmax = Math.max(...xs) * 1.05, ylo = Math.min(...ys), yhi = Math.max(...ys), yp = (yhi - ylo) * 0.06;
+  const x = linear(0, xmax, mL, W - mR), y = linear(ylo - yp, yhi + yp, H - mB, mT);
+  const xt = niceTicks(0, xmax, W < 520 ? 4 : 6), yt = niceTicks(ylo - yp, yhi + yp, 6);
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Scatter of ${state.pos} starter cap share against ${OUT[o].lc}. Table view has the data.` });
+  yt.ticks.forEach(t => {
+    svg.appendChild(s("line", { class: Math.abs(t) < 1e-9 ? "axis" : "grid", x1: mL, x2: W - mR, y1: y(t), y2: y(t) }));
+    svg.appendChild(s("text", { class: "t-muted", x: mL - 8, y: y(t) + 4, "text-anchor": "end", text: yt.dec ? t.toFixed(yt.dec) : String(t) }));
+  });
+  xt.ticks.forEach(t => svg.appendChild(s("text", { class: "t-muted", x: x(t), y: H - mB + 18, "text-anchor": "middle", text: xt.dec ? t.toFixed(xt.dec) + "%" : t + "%" })));
+  svg.appendChild(s("line", { class: "axis", x1: mL, x2: W - mR, y1: H - mB, y2: H - mB }));
+  svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 6, "text-anchor": "middle", text: `${state.pos} starters' share of tracked cap` }));
+  svg.appendChild(s("text", { x: 0, y: mT + 2, text: OUT[o].short, class: "t-muted" }));
+  const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
+  if (rows.length > 2) { const x0 = 0, x1 = xmax; svg.appendChild(s("line", { class: "trend", x1: x(x0), x2: x(x1), y1: y(my + f.slope * (x0 - mx)), y2: y(my + f.slope * (x1 - mx)) })); }
+  const dots = rows.map(r => { const c = s("circle", { class: "pt", cx: x(xf(r)), cy: y(yf(r)), r: 4.5 }); svg.appendChild(c); return { r, c, px: x(xf(r)), py: y(yf(r)) }; });
+  const apply = () => {
+    const t = state.pinned || state.hover;
+    dots.forEach(d => { d.c.setAttribute("class", "pt" + (t ? (d.r.t === t ? " hl" : " dim") : "")); });
+    dots.filter(d => t && d.r.t === t).forEach(d => svg.appendChild(d.c));   // raise highlighted marks
+  };
+  const overlay = s("rect", { x: mL, y: mT, width: W - mL - mR, height: H - mT - mB, fill: "transparent", style: "cursor:crosshair" });
+  overlay.addEventListener("pointermove", e => {
+    const b = svg.getBoundingClientRect(), k = W / b.width, px = (e.clientX - b.left) * k, py = (e.clientY - b.top) * k;
+    let best = null, bd = 1e9;
+    for (const d of dots) { const dd = (d.px - px) ** 2 + (d.py - py) ** 2; if (dd < bd) { bd = dd; best = d; } }
+    if (best && Math.sqrt(bd) <= 36 * k) {
+      state.hover = best.r.t; apply(); const r = best.r;
+      showTip(e.clientX, e.clientY, fmt(r[o], 1) + " " + OUT[o].short, [`${DATA.teams[r.t]}, ${r.s}`, `${state.pos} starters: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M)`, `Win % ${r.w.toFixed(3)}`]);
+    } else { state.hover = null; apply(); hideTip(); }
+  });
+  overlay.addEventListener("pointerleave", () => { state.hover = null; apply(); hideTip(); });
+  overlay.addEventListener("click", () => { state.pinned = state.hover && state.hover !== state.pinned ? state.hover : null; apply(); });
+  svg.appendChild(overlay); host.appendChild(svg); apply();
+}
+
+/* ---------- 3. team explorer ---------- */
+function renderTeam() {
+  const host = $("#team-chart"); host.replaceChildren();
+  const tm = state.team, rows = ROWS.filter(r => r.t === tm && r.s >= state.from && r.s <= state.to).sort((a, b) => a.s - b.s);
+  $("#team-sub").textContent = `${DATA.teams[tm]}: results by season, and where its starter money sat relative to the league average that year.`;
+  $("#team-key").hidden = state.view.team === "table";
+  if (state.view.team === "table") {
+    host.appendChild(table(["Season", "Pt diff/g", "Win %", ...POS.map(p => p + " %")], rows.map(r => [r.s, fmt(r.pd, 1), r.w.toFixed(3), ...r.st.map(v => v.toFixed(1))])));
+    return;
+  }
+  const n = rows.length, avail = width(host), narrow = avail < 520, mL = narrow ? 36 : 50, mR = 8, band = Math.max(24, (avail - mL - mR) / n), W = Math.max(avail, mL + mR + band * n);
+  const topH = 150, gap = 40, cellH = 22, hmH = cellH * POS.length, mT = 26, mB = 28, H = mT + topH + gap + hmH + mB;
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, role: "img", "aria-label": `${DATA.teams[tm]} point differential by season and position spending versus league average. Table view has the numbers.` });
+  const y = linear(-16, 16, mT + topH, mT), bx = i => mL + band * i;
+  [-15, -10, -5, 0, 5, 10, 15].forEach(t => {
+    svg.appendChild(s("line", { class: t === 0 ? "axis" : "grid", x1: mL, x2: W - mR, y1: y(t), y2: y(t) }));
+    if (t % 10 === 0 || t === 0) svg.appendChild(s("text", { class: "t-muted", x: mL - 6, y: y(t) + 4, "text-anchor": "end", text: String(t) }));
+  });
+  const cw = Math.min(24, band - 6);
+  rows.forEach((r, i) => {
+    const cx = bx(i) + band / 2, top = y(r.pd);
+    const g = s("g", { class: "col" });
+    g.appendChild(s("path", { class: r.pd >= 0 ? "col-pos" : "col-neg", d: barPath(cx - cw / 2, cw, y(0), top, 4) }));
+    g.appendChild(s("rect", { x: bx(i), y: mT, width: band, height: topH, fill: "transparent", style: "cursor:default" }));
+    g.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, fmt(r.pd, 1) + " pts/game", [`${tm} ${r.s}`, `Win % ${r.w.toFixed(3)}`, `Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays`]));
+    g.addEventListener("pointerleave", hideTip);
+    svg.appendChild(g);
+    svg.appendChild(s("text", { class: "t-muted", x: cx, y: mT + topH + gap + hmH + 18, "text-anchor": "middle", text: narrow ? "'" + String(r.s).slice(2) : String(r.s) }));
+  });
+  svg.appendChild(s("text", { class: "t-strong", x: mL, y: 14, text: "Point differential per game" }));
+  const y0 = mT + topH + gap;
+  svg.appendChild(s("text", { class: "t-strong", x: mL, y: y0 - 12, text: "Starters' share of cap vs. league average that season" }));
+  POS.forEach((p, pi) => {
+    svg.appendChild(s("text", { class: "t-ink", x: mL - 6, y: y0 + cellH * pi + cellH / 2 + 4, "text-anchor": "end", text: p }));
+    rows.forEach((r, i) => {
+      const lg = lgMean(r.s, pi), diff = r.st[pi] - lg, z = Math.max(-2, Math.min(2, diff / sd[pi]));
+      const c = s("rect", { class: "cell " + (Math.abs(z) < 0.05 ? "cell-base" : z > 0 ? "cell-pos" : "cell-neg"), x: bx(i) + 1, y: y0 + cellH * pi + 1, width: band - 2, height: cellH - 2, rx: 3,
+        "fill-opacity": Math.abs(z) < 0.05 ? 1 : (0.12 + 0.88 * Math.abs(z) / 2).toFixed(2) });
+      c.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, `${p}: ${r.st[pi].toFixed(1)}% of cap`, [`${tm} ${r.s}, $${r.usd[pi].toFixed(1)}M`, `League average ${lg.toFixed(1)}% (${fmt(diff, 1)} pts)`]));
+      c.addEventListener("pointerleave", hideTip);
+      svg.appendChild(c);
+    });
+  });
+  host.appendChild(svg);
+}
+
+/* ---------- controls ---------- */
+function fill(sel, items, value) { sel.replaceChildren(...items.map(([v, l]) => h("option", { value: v, text: l }))); sel.value = value; }
+fill($("#f-pos"), POS.map(p => [p, POSNAME[p]]), state.pos);
+const years = []; for (let y = DATA.seasons[0]; y <= DATA.seasons[1]; y++) years.push([y, String(y)]);
+fill($("#f-from"), years, state.from); fill($("#f-to"), years, state.to);
+fill($("#f-team"), teams.map(t => [t, DATA.teams[t]]), state.team);
+const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); };
+$("#f-outcome").addEventListener("change", e => { state.outcome = e.target.value; renderAll(); });
+$("#f-pos").addEventListener("change", e => { state.pos = e.target.value; renderFindings(); renderExplorer(); });
+$("#f-from").addEventListener("change", e => { state.from = +e.target.value; if (state.from > state.to) { state.to = state.from; $("#f-to").value = state.to; } renderExplorer(); renderTeam(); });
+$("#f-to").addEventListener("change", e => { state.to = +e.target.value; if (state.to < state.from) { state.from = state.to; $("#f-from").value = state.from; } renderExplorer(); renderTeam(); });
+$("#f-team").addEventListener("change", e => { state.team = e.target.value; renderTeam(); });
+$("#reset").addEventListener("click", () => {
+  Object.assign(state, DEFAULTS, { pinned: null, hover: null });
+  $("#f-outcome").value = state.outcome; $("#f-pos").value = state.pos; $("#f-from").value = state.from; $("#f-to").value = state.to; $("#f-team").value = state.team; renderAll();
+});
+const seg = { "s-find": ["find", renderFindings], "s-exp": ["exp", renderExplorer], "s-team": ["team", renderTeam] };
+for (const id in seg) {
+  document.querySelectorAll("#" + id + " .seg button").forEach(b => b.addEventListener("click", () => {
+    state.view[seg[id][0]] = b.dataset.view;
+    document.querySelectorAll("#" + id + " .seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    seg[id][1]();
+  }));
+}
+let lastW = 0;
+new ResizeObserver(() => { const w = $(".wrap").clientWidth; if (Math.abs(w - lastW) > 2) { lastW = w; renderAll(); } }).observe($(".wrap"));
+renderAll();
+})();
+</script>
+</body>
+</html>
