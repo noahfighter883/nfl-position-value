@@ -19,6 +19,16 @@ FIRST, LAST = 2013, 2025  # snap counts start in 2013
 # starters = the top-N players at each position group by snaps played (N fills a base 11-man lineup);
 # a flat snap-share cutoff undercounts starters at positions that rotate (RB, DL, LB)
 STARTER_SLOTS = {"QB": 1, "RB": 1, "WR": 3, "TE": 1, "OL": 5, "DL": 2, "EDGE": 2, "LB": 2, "CB": 3, "S": 2}
+BASELINE_RULE = "top-N (base 11)"
+# alternative starter definitions, used by the sensitivity check in the notebook
+STARTER_RULES = {
+    BASELINE_RULE: {"slots": STARTER_SLOTS},
+    "top-N narrow": {"slots": {"QB": 1, "RB": 1, "WR": 2, "TE": 1, "OL": 5, "DL": 2, "EDGE": 2, "LB": 1, "CB": 2, "S": 2}},
+    "top-N wide": {"slots": {"QB": 1, "RB": 2, "WR": 4, "TE": 2, "OL": 6, "DL": 3, "EDGE": 3, "LB": 3, "CB": 4, "S": 3}},
+    "snap share >= 33%": {"share": 0.33},
+    "snap share >= 50%": {"share": 0.50},
+    "snap share >= 66%": {"share": 0.66},
+}
 OUT = Path(__file__).resolve().parent.parent / "data"
 
 NICKNAME_TO_ABBR = {
@@ -132,6 +142,32 @@ def load_epa() -> pd.DataFrame:
     return per_play("posteam", "off").merge(per_play("defteam", "def"), on=["season", "team"])
 
 
+def assign_roles(ps: pd.DataFrame, rule: dict) -> pd.Series:
+    """'starter' / 'bench' per player-season under a starter rule ({'slots': {pos: N}} or {'share': cutoff}).
+
+    Specialists (K/P/LS) are one 'ST' bucket with no split; zero-snap players can never be starters.
+    """
+    if "slots" in rule:
+        is_starter = ps["snap_rank"] <= ps["pos_group"].map(rule["slots"])
+    else:
+        is_starter = ps["unit_share"] >= rule["share"]
+    return pd.Series(np.where(ps["pos_group"] == "ST", "all",
+                              np.where(is_starter & (ps["unit_snaps"] > 0), "starter", "bench")), index=ps.index)
+
+
+def share_table(ps: pd.DataFrame) -> pd.DataFrame:
+    """Team-season cap $M and share of tracked cap by position group x role (uses ps['role'])."""
+    wide = ps.pivot_table(index=["season", "team"], columns=["pos_group", "role"], values="cap_m",
+                          aggfunc="sum", fill_value=0.0)
+    wide.columns = [f"{g}_{r}" for g, r in wide.columns]
+    wide = wide.reset_index()
+    cap_cols = [c for c in wide.columns if c not in ("season", "team")]
+    wide["tracked_cap_m"] = wide[cap_cols].sum(axis=1)
+    for col in cap_cols:
+        wide[f"{col}_share"] = wide[col] / wide["tracked_cap_m"]
+    return wide
+
+
 def main() -> None:
     OUT.mkdir(exist_ok=True)
     cap, snaps, results = load_cap(), load_snap_share(), load_results()
@@ -141,15 +177,9 @@ def main() -> None:
         ps[["offense_snaps", "defense_snaps", "off_share", "def_share"]].fillna(0)
     ps["unit_share"] = np.where(ps["pos_group"].isin(OFFENSE), ps["off_share"],
                          np.where(ps["pos_group"].isin(DEFENSE), ps["def_share"], np.nan))
-    unit_snaps = np.where(ps["pos_group"].isin(OFFENSE), ps["offense_snaps"], ps["defense_snaps"])
-    ps["snap_rank"] = (ps.assign(unit_snaps=unit_snaps)
-                         .groupby(["season", "team", "pos_group"])["unit_snaps"]
-                         .rank(method="first", ascending=False))
-    # specialists (K/P/LS) are tracked as one "ST" bucket and don't get a starter/bench split;
-    # zero-snap players (injured/practice squad) can never be starters
-    slots = ps["pos_group"].map(STARTER_SLOTS)
-    ps["role"] = np.where(ps["pos_group"] == "ST", "all",
-                   np.where((ps["snap_rank"] <= slots) & (unit_snaps > 0), "starter", "bench"))
+    ps["unit_snaps"] = np.where(ps["pos_group"].isin(OFFENSE), ps["offense_snaps"], ps["defense_snaps"])
+    ps["snap_rank"] = ps.groupby(["season", "team", "pos_group"])["unit_snaps"].rank(method="first", ascending=False)
+    ps["role"] = assign_roles(ps, STARTER_RULES[BASELINE_RULE])
     # rookie-scale contract: drafted, within 4 seasons of the draft (5 for 1st-rounders: fifth-year option)
     yrs_since_draft = ps["season"] - ps["draft_year"]
     ps["rookie_deal"] = (ps["draft_round"].notna()
@@ -157,14 +187,7 @@ def main() -> None:
                          & (yrs_since_draft >= 0))
     ps.to_parquet(OUT / "player_season.parquet", index=False)
 
-    wide = ps.pivot_table(index=["season", "team"], columns=["pos_group", "role"], values="cap_m",
-                          aggfunc="sum", fill_value=0.0)
-    wide.columns = [f"{g}_{r}" for g, r in wide.columns]
-    wide = wide.reset_index()
-    cap_cols = [c for c in wide.columns if c not in ("season", "team")]
-    wide["tracked_cap_m"] = wide[cap_cols].sum(axis=1)
-    for col in cap_cols:
-        wide[f"{col}_share"] = wide[col] / wide["tracked_cap_m"]
+    wide = share_table(ps)
 
     qb1 = ps[(ps["pos_group"] == "QB") & (ps["role"] == "starter")] \
         .rename(columns={"rookie_deal": "qb1_rookie_deal", "draft_overall": "qb1_draft_overall", "cap_m": "qb1_cap_m"}) \
