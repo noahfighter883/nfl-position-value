@@ -55,7 +55,8 @@ def load_cap() -> pd.DataFrame:
         for d in (p.season_history if p.season_history is not None else []):
             rows.append({"otc_id": p.otc_id, "gsis_id": p.gsis_id, "player": p.player,
                          "position": p.position, "year": d["year"], "team": d["team"],
-                         "cap_number": d["cap_number"]})
+                         "cap_number": d["cap_number"], "draft_year": p.draft_year,
+                         "draft_round": p.draft_round, "draft_overall": p.draft_overall})
     df = pd.DataFrame(rows)
     df["season"] = pd.to_numeric(df["year"], errors="coerce")
     df = df[df["season"].between(FIRST, LAST)].copy()
@@ -66,7 +67,8 @@ def load_cap() -> pd.DataFrame:
     df["pos_group"] = df["position"].map(POS_GROUP)
     df = df.dropna(subset=["team", "pos_group", "cap_number"])
     df["cap_m"] = df["cap_number"].astype(float)
-    return df[["otc_id", "gsis_id", "player", "position", "pos_group", "season", "team", "cap_m"]]
+    return df[["otc_id", "gsis_id", "player", "position", "pos_group", "season", "team", "cap_m",
+               "draft_year", "draft_round", "draft_overall"]]
 
 
 def load_snap_share() -> pd.DataFrame:
@@ -127,6 +129,11 @@ def main() -> None:
     slots = ps["pos_group"].map(STARTER_SLOTS)
     ps["role"] = np.where(ps["pos_group"] == "ST", "all",
                    np.where((ps["snap_rank"] <= slots) & (unit_snaps > 0), "starter", "bench"))
+    # rookie-scale contract: drafted, within 4 seasons of the draft (5 for 1st-rounders: fifth-year option)
+    yrs_since_draft = ps["season"] - ps["draft_year"]
+    ps["rookie_deal"] = (ps["draft_round"].notna()
+                         & (yrs_since_draft <= np.where(ps["draft_round"] == 1, 4, 3))
+                         & (yrs_since_draft >= 0))
     ps.to_parquet(OUT / "player_season.parquet", index=False)
 
     wide = ps.pivot_table(index=["season", "team"], columns=["pos_group", "role"], values="cap_m",
@@ -138,12 +145,19 @@ def main() -> None:
     for col in cap_cols:
         wide[f"{col}_share"] = wide[col] / wide["tracked_cap_m"]
 
+    qb1 = ps[(ps["pos_group"] == "QB") & (ps["role"] == "starter")] \
+        .rename(columns={"rookie_deal": "qb1_rookie_deal", "draft_overall": "qb1_draft_overall", "cap_m": "qb1_cap_m"}) \
+        [["season", "team", "qb1_rookie_deal", "qb1_draft_overall", "qb1_cap_m"]]
+    wide = wide.merge(qb1, on=["season", "team"], how="left")
+
     ts = wide.merge(results, on=["season", "team"], how="inner")
     ts.to_parquet(OUT / "team_season.parquet", index=False)
 
     print(f"player_season: {len(ps):,} rows | team_season: {len(ts)} rows "
           f"({ts.season.min()}-{ts.season.max()}, {ts.team.nunique()} teams)")
     print(f"cap rows with a snap match: {(ps.offense_snaps + ps.defense_snaps > 0).mean():.1%}")
+    print(f"team-seasons with a QB1 identified: {ts.qb1_cap_m.notna().sum()} / {len(ts)}; "
+          f"QB1 on rookie deal: {ts.qb1_rookie_deal.fillna(False).astype(bool).sum()}")
 
 
 if __name__ == "__main__":

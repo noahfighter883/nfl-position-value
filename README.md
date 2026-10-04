@@ -6,7 +6,7 @@ Starters and bench players are separated using snap counts.
 **Read the results:** [`analysis.ipynb`](analysis.ipynb) (outputs are saved, so it renders on GitHub).
 
 ## Headline findings
-- **QB** is the clearest case: higher starter-QB spend goes with better point differential, with most of the gain by ~$19M. Money spent on non-starting QBs is associated with *worse* results.
+- **QB** is the clearest case: higher starter-QB spend goes with better point differential, with most of the gain by ~$19M. This holds after controlling for rookie-scale contracts (the coefficient is essentially unchanged, and holds within both rookie-deal and veteran-deal QBs). Money spent on non-starting QBs is associated with *worse* results.
 - **WR** spend shows no payoff beyond a modest level; neither the top-paid WR nor the other starters stand out.
 - **TE** (small sample, wide interval) and **OL outside the top five** are surprises worth digging into.
 - Cap allocation explains only ~10% of variance in point differential. This is association, not causation.
