@@ -142,6 +142,15 @@ def load_epa() -> pd.DataFrame:
     return per_play("posteam", "off").merge(per_play("defteam", "def"), on=["season", "team"])
 
 
+def load_availability() -> pd.DataFrame:
+    """Regular-season weeks per player-season by roster status: active, inactive (game-day), injured lists."""
+    r = nfl.load_rosters_weekly(list(range(FIRST, LAST + 1))).select(["season", "week", "gsis_id", "status", "game_type"]).to_pandas()
+    r = r[(r["game_type"] == "REG") & r["gsis_id"].notna()].drop_duplicates(["season", "week", "gsis_id"])
+    r["bucket"] = r["status"].map({"ACT": "weeks_act", "INA": "weeks_ina", "RES": "weeks_ir", "PUP": "weeks_ir", "NWT": "weeks_ir"})
+    r["bucket"] = r["bucket"].fillna("weeks_other")  # practice squad (DEV), cut, suspended, etc.
+    return r.pivot_table(index=["gsis_id", "season"], columns="bucket", values="week", aggfunc="count", fill_value=0).reset_index()
+
+
 def assign_roles(ps: pd.DataFrame, rule: dict) -> pd.Series:
     """'starter' / 'bench' per player-season under a starter rule ({'slots': {pos: N}} or {'share': cutoff}).
 
@@ -177,6 +186,10 @@ def main() -> None:
         ps[["offense_snaps", "defense_snaps", "off_share", "def_share"]].fillna(0)
     ps["unit_share"] = np.where(ps["pos_group"].isin(OFFENSE), ps["off_share"],
                          np.where(ps["pos_group"].isin(DEFENSE), ps["def_share"], np.nan))
+    avail = load_availability()
+    ps = ps.merge(avail, on=["gsis_id", "season"], how="left")
+    avail_cols = [c for c in avail.columns if c.startswith("weeks_")]
+    ps[avail_cols] = ps[avail_cols].fillna(0)
     ps["unit_snaps"] = np.where(ps["pos_group"].isin(OFFENSE), ps["offense_snaps"], ps["defense_snaps"])
     ps["snap_rank"] = ps.groupby(["season", "team", "pos_group"])["unit_snaps"].rank(method="first", ascending=False)
     ps["role"] = assign_roles(ps, STARTER_RULES[BASELINE_RULE])
