@@ -6,9 +6,10 @@ Starters and bench players are separated using snap counts.
 **Read the results:** [`analysis.ipynb`](analysis.ipynb) (outputs are saved, so it renders on GitHub).
 
 ## Headline findings
-- **QB** is the clearest case: higher starter-QB spend goes with better point differential, with most of the gain by ~$19M. This holds after controlling for rookie-scale contracts (the coefficient is essentially unchanged, and holds within both rookie-deal and veteran-deal QBs). Money spent on non-starting QBs is associated with *worse* results.
-- **WR** spend shows no payoff beyond a modest level; neither the top-paid WR nor the other starters stand out.
-- **TE** (small sample, wide interval) and **OL outside the top five** are surprises worth digging into.
+- **QB** is the clearest case: higher starter-QB spend goes with better point differential, with most of the gain by ~$19M. It holds after controlling for rookie-scale contracts, and in EPA terms it is entirely a *passing offense* effect. Money spent on non-starting QBs is associated with *worse* results.
+- **Effects land where football says they should** (EPA/play split): QB, WR and OL (run game) help the offense; EDGE and CB (pass defense) and interior DL (run defense) help the defense. S and LB show nothing clear.
+- **WR** looked flat on point differential but shows a modest real offensive-EPA effect.
+- **TE** looked valuable at first, but TE spend also "predicts" *defensive* EPA, which fails a placebo test, so it is probably noise.
 - Cap allocation explains only ~10% of variance in point differential. This is association, not causation.
 
 ## Method (short)

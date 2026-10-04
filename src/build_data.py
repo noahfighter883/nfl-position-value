@@ -111,6 +111,27 @@ def load_results() -> pd.DataFrame:
     return r
 
 
+def load_epa() -> pd.DataFrame:
+    """Regular-season EPA/play per team-season: offense, and EPA allowed by the defense, split pass/rush."""
+    frames = []
+    for season in range(FIRST, LAST + 1):  # one season at a time: the full pbp table is large
+        d = nfl.load_pbp([season]).select(["season", "season_type", "posteam", "defteam", "epa", "play_type"]).to_pandas()
+        d = d[(d["season_type"] == "REG") & d["play_type"].isin(["pass", "run"]) & d["epa"].notna()]
+        frames.append(d.drop(columns="season_type"))
+    d = pd.concat(frames)
+    d[["posteam", "defteam"]] = d[["posteam", "defteam"]].replace(ABBR_FIX)
+
+    def per_play(side: str, prefix: str) -> pd.DataFrame:
+        g = d.groupby(["season", side])
+        out = pd.DataFrame({f"{prefix}_epa_play": g["epa"].mean()})
+        for kind, label in (("pass", "pass"), ("run", "rush")):
+            out[f"{prefix}_{label}_epa_play"] = d[d["play_type"] == kind].groupby(["season", side])["epa"].mean()
+        return out.rename_axis(["season", "team"]).reset_index()
+
+    # "def" = EPA the defense allowed per play (lower is better)
+    return per_play("posteam", "off").merge(per_play("defteam", "def"), on=["season", "team"])
+
+
 def main() -> None:
     OUT.mkdir(exist_ok=True)
     cap, snaps, results = load_cap(), load_snap_share(), load_results()
@@ -150,7 +171,7 @@ def main() -> None:
         [["season", "team", "qb1_rookie_deal", "qb1_draft_overall", "qb1_cap_m"]]
     wide = wide.merge(qb1, on=["season", "team"], how="left")
 
-    ts = wide.merge(results, on=["season", "team"], how="inner")
+    ts = wide.merge(results, on=["season", "team"], how="inner").merge(load_epa(), on=["season", "team"], how="left")
     ts.to_parquet(OUT / "team_season.parquet", index=False)
 
     print(f"player_season: {len(ps):,} rows | team_season: {len(ts)} rows "
