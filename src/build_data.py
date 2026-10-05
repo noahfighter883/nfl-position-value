@@ -8,6 +8,7 @@ Sources (all via nflreadpy / nflverse):
 Outputs to data/:
   player_season.parquet  one row per player-team-season: position group, cap $M, snap share, starter flag
   team_season.parquet    one row per team-season: cap $M and share by position group x role, plus results
+  qb_season.parquet      one row per passer-season: regular-season pass plays and total EPA
 """
 from pathlib import Path
 
@@ -151,6 +152,16 @@ def load_availability() -> pd.DataFrame:
     return r.pivot_table(index=["gsis_id", "season"], columns="bucket", values="week", aggfunc="count", fill_value=0).reset_index()
 
 
+def load_qb_passing() -> pd.DataFrame:
+    """Per passer-season: regular-season pass plays (sacks included) and total EPA."""
+    frames = []
+    for season in range(FIRST, LAST + 1):
+        d = nfl.load_pbp([season]).select(["season", "season_type", "play_type", "passer_player_id", "epa"]).to_pandas()
+        d = d[(d["season_type"] == "REG") & (d["play_type"] == "pass") & d["epa"].notna() & d["passer_player_id"].notna()]
+        frames.append(d.groupby(["passer_player_id", "season"])["epa"].agg(pass_plays="size", epa_sum="sum").reset_index())
+    return pd.concat(frames).rename(columns={"passer_player_id": "gsis_id"})
+
+
 def assign_roles(ps: pd.DataFrame, rule: dict) -> pd.Series:
     """'starter' / 'bench' per player-season under a starter rule ({'slots': {pos: N}} or {'share': cutoff}).
 
@@ -209,6 +220,7 @@ def main() -> None:
 
     ts = wide.merge(results, on=["season", "team"], how="inner").merge(load_epa(), on=["season", "team"], how="left")
     ts.to_parquet(OUT / "team_season.parquet", index=False)
+    load_qb_passing().to_parquet(OUT / "qb_season.parquet", index=False)
 
     print(f"player_season: {len(ps):,} rows | team_season: {len(ts)} rows "
           f"({ts.season.min()}-{ts.season.max()}, {ts.team.nunique()} teams)")

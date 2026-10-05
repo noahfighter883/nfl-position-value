@@ -12,7 +12,7 @@ Starters and bench players are separated using snap counts.
 - **Effects land where football says they should** (EPA/play split): QB, WR and OL (run game) help the offense; EDGE and CB (pass defense) and interior DL (run defense) help the defense. S and LB show nothing clear.
 - **WR** looked flat on point differential but shows a modest real offensive-EPA effect.
 - **TE** looked valuable at first, but TE spend also "predicts" *defensive* EPA, which fails a placebo test, so it is probably noise.
-- **Insurance:** losing the starting QB for 8 weeks costs about 5 pts/game, but pricier backup QBs show no detectable cushion. The data rule out large benefits (a $5M backup recovers at most ~1/5 of the damage), not small ones.
+- **Insurance:** losing the starting QB for 8 weeks costs about 5 pts/game, but better backup QBs show no detectable cushion, whether quality is measured by cap hit, prior EPA, experience or draft pick. The data rule out large benefits (at most about a quarter of the damage), not small ones.
 - **Robust to the starter definition:** QB, WR, OL, EDGE and CB findings hold under six different definitions of "starter"; interior DL is weaker and TE is not stable.
 - Cap allocation explains only ~10% of variance in point differential. This is association, not causation.
 
