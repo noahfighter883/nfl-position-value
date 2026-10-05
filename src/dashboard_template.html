@@ -389,7 +389,7 @@ function renderFindings() {
   $("#find-note").textContent = NOTE[o] + " Together the positions explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + ".";
   $("#find-key").hidden = state.view.find === "table";
   if (state.view.find === "table") {
-    host.appendChild(table(["Unit", "Position", "Effect (" + OUT[o].short + " per +1 pt cap)", "95% low", "95% high", "p-value", "Significant under (of 6 starter rules)"],
+    host.appendChild(table(["Unit", "Position", "Effect (" + OUT[o].short + " per +1 point of cap)", "95% low", "95% high", "p-value", "Significant under (of 6 starter rules)"],
       groups.flatMap(g => g.rows.map(d => [g.label, d.pos, fmt(d.coef, 2), fmt(d.lo, 2), fmt(d.hi, 2), d.p < 0.001 ? "<0.001" : d.p.toFixed(3), d.robust + "/6"]))));
     return;
   }
@@ -462,12 +462,12 @@ function renderExplorer() {
   stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Model estimate" }),
     h("div", { class: "cap", text: "All seasons, other positions held fixed" }),
     h("div", { class: "big", text: fmt(mine.coef, 2) + " " + OUT[o].short }),
-    h("div", { class: "small", text: `per +1 pt of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions.${fullRange ? "" : " This does not change with the season range."}` })]));
+    h("div", { class: "small", text: `per +1 point of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions.${fullRange ? "" : " This does not change with the season range."}` })]));
   const sample = s("svg", { width: 22, height: 10, "aria-hidden": "true" }, [s("line", { x1: 2, y1: 5, x2: 20, y2: 5, class: "trend" })]);
   stat.appendChild(h("div", { class: "card" }, [h("h3", {}, [document.createTextNode("This chart’s trend"), sample]),
     h("div", { class: "cap", text: `${state.exp.from}–${state.exp.to}, ${pos} alone` }),
     h("div", { class: "big", text: fmt(f.slope, 2) + " " + OUT[o].short }),
-    h("div", { class: "small", text: `per +1 pt of cap share, correlation ${f.r.toFixed(2)}, season averages removed. It ignores other positions, so it can differ from the model estimate.` })]));
+    h("div", { class: "small", text: `per +1 point of cap share, correlation ${f.r.toFixed(2)}, season averages removed. It ignores other positions, so it can differ from the model estimate.` })]));
   if (state.view.exp === "table") {
     pinbar.hidden = true; applyHighlight = () => {};
     const sorted = rows.slice().sort((a, b) => xf(b) - xf(a));
@@ -585,7 +585,7 @@ function renderTeam() {
   });
   const cw = Math.min(24, band - 6);
   const barText = r => `${tm} ${r.s}: ${fmt(r.pd, 1)} pts/game, win % ${r.w.toFixed(3)}. Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays.`;
-  const cellText = (r, pi) => { const lg = lgMean(r.s, pi), diff = r.st[pi] - lg; return `${tm} ${r.s}, ${POSNAME[POS[pi]]}: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M). League average ${lg.toFixed(1)}% (${fmt(diff, 1)} pts).`; };
+  const cellText = (r, pi) => { const lg = lgMean(r.s, pi), diff = r.st[pi] - lg; return `${tm} ${r.s}, ${POSNAME[POS[pi]]}: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M). League average ${lg.toFixed(1)}% (${fmt(diff, 1)} percentage points).`; };
   rows.forEach((r, i) => {
     const cx = bx(i) + band / 2, top = y(r.pd), g = s("g", { class: "col" });
     g.appendChild(s("path", { class: r.pd >= 0 ? "col-pos" : "col-neg", d: barPath(cx - cw / 2, cw, y(0), top, 4) }));
@@ -604,7 +604,7 @@ function renderTeam() {
       const lg = lgMean(r.s, pi), diff = r.st[pi] - lg, z = Math.max(-2, Math.min(2, diff / sd[pi]));
       const c = s("rect", { class: "cell " + (Math.abs(z) < 0.05 ? "cell-base" : z > 0 ? "cell-pos" : "cell-neg"), x: bx(i) + 1, y: y0 + cellH * pi + 1, width: band - 2, height: cellH - 2, rx: 3,
         "fill-opacity": Math.abs(z) < 0.05 ? 1 : (0.12 + 0.88 * Math.abs(z) / 2).toFixed(2) });
-      c.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, `${p}: ${r.st[pi].toFixed(1)}% of cap`, [`${tm} ${r.s}, $${r.usd[pi].toFixed(1)}M`, `League average ${lg.toFixed(1)}% (${fmt(diff, 1)} pts)`]); });
+      c.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, `${p}: ${r.st[pi].toFixed(1)}% of cap`, [`${tm} ${r.s}, $${r.usd[pi].toFixed(1)}M`, `League average ${lg.toFixed(1)}% (${fmt(diff, 1)} percentage points)`]); });
       c.addEventListener("pointerleave", hideTip);
       c.addEventListener("click", () => { setReadout(cellText(r, pi)); sel = { i, row: pi }; place(); });
       svg.appendChild(c);
