@@ -5,6 +5,8 @@ Starters and bench players are separated using snap counts.
 
 **Read the results:** [`analysis.ipynb`](analysis.ipynb) (outputs are saved, so it renders on GitHub).
 
+**Read the story:** [`WRITEUP.md`](WRITEUP.md) is a short case study of the question, method, findings and limits.
+
 **Explore them:** open [`dashboard/index.html`](dashboard/index.html) in a browser. It is one self-contained file (no server or libraries) with a findings chart, a position explorer, and a team explorer. Numbers come from the same data and models as the notebook.
 
 ## Headline findings
