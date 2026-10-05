@@ -8,7 +8,7 @@ Starters and bench players are separated using snap counts.
 **Explore them:** open [`dashboard/index.html`](dashboard/index.html) in a browser. It is one self-contained file (no server or libraries) with a findings chart, a position explorer, and a team explorer. Numbers come from the same data and models as the notebook.
 
 ## Headline findings
-- **QB** is the clearest case: higher starter-QB spend goes with better point differential, with most of the gain by ~$19M. It holds after controlling for rookie-scale contracts, and in EPA terms it is entirely a *passing offense* effect. Money tied up in non-starting QBs and OL goes with worse results, but it turns out to be mostly *injured-reserve* money (a same-season injury effect), not wasted spending on depth.
+- **QB** is the clearest case: higher starter-QB spend goes with better point differential, with most of the gain by ~$19M. It holds after controlling for rookie-scale contracts, and in EPA terms it is entirely a *passing offense* effect. Money tied up in non-starting QBs and OL goes with worse results, but it turns out to be mostly *injured-reserve* money (a same-season injury effect), not wasted spending on depth. Returns taper off above roughly 14% of the cap (about $30M+ today); a decline at the very top is possible but not established.
 - **Effects land where football says they should** (EPA/play split): QB, WR and OL (run game) help the offense; EDGE and CB (pass defense) and interior DL (run defense) help the defense. S and LB show nothing clear.
 - **WR** looked flat on point differential but shows a modest real offensive-EPA effect.
 - **TE** looked valuable at first, but TE spend also "predicts" *defensive* EPA, which fails a placebo test, so it is probably noise.
