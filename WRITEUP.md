@@ -4,7 +4,7 @@ A team-level look at salary cap spending and results across 13 seasons (2013 to 
 
 ## The short version
 
-Spending on the starting quarterback has the clearest payoff in this data, and it works through the passing game. Receivers, offensive linemen, edge rushers and cornerbacks also pay off, on the side of the ball where they play. Tight end looks valuable at first, but a simple check says that result is probably noise. Taken together, how a team splits its cap explains only about a tenth of how it performs.
+Spending on the starting quarterback has the clearest payoff in this data, and it works through the passing game. Receivers, offensive linemen, edge rushers and cornerbacks also pay off, on the side of the ball where they play. Tight end looks valuable at first, but a simple check says that result is probably noise. Taken together, how a team splits its cap explains only about a tenth of how it performs. The strongest single marker in the data is not a position at all: teams carrying a lot of dead money and unspent cap do worse, though that is probably as much a result of a bad year as a cause of one.
 
 ## The question
 
@@ -17,9 +17,12 @@ I combined public nflverse data into 416 team-seasons (32 teams, 2013 to 2025): 
 - **Cap share.** Each position group's cap hit as a share of the team's total, so a 2013 season can be compared with a 2025 one. One point of share is about $1.6M for an average team.
 - **Starters and bench.** Money on a starting left tackle and money on a backup are different decisions. I counted the top players at each position by snaps as starters (QB1, RB1, three WR, TE1, five OL, and so on, filling a standard 11-man lineup) and everyone else as bench.
 - **Results.** Point differential per game, plus offensive and defensive EPA per play, which separates the two sides of the ball.
+- **Dead money and unspent cap.** The contract data has no dead cap, because a released player's leftover bonus is not in his season history. I recovered it as the league's base cap minus every tracked cap hit. It is mostly dead money but also includes cap a team left unused, and I cannot separate the two.
 - **One model for all positions.** A single regression with every position at once, season fixed effects, and standard errors clustered by team. Each coefficient answers one question: what happens if one point of cap moves from bench depth into this position's starters?
 
 ## What I found
+
+The position results below come from the model with the ten positions only. The last section before the caveats adds dead money, which shrinks several of them. The dashboard shows the version with dead money included.
 
 ### Quarterback is the clearest payoff
 
@@ -53,17 +56,26 @@ Early on, money tied up in non-starting QBs and linemen looked wasteful, since i
 
 Losing the starting QB for eight weeks costs about five points per game. I tested whether a better backup softens that, measuring "better" several ways: cap hit, performance before the season (which I checked does predict next-year performance), experience and draft position. I also looked at the QB who actually replaced the starter, because the planned backup played only 53% of the time. The best estimate is that a replacement one standard deviation better recovers about a fifth of the damage, which is close to what the arithmetic predicts. The data cannot tell that from zero, and they cannot rule out a benefit of up to about two-fifths.
 
+### Dead money and unspent cap: the strongest marker, and probably not a cause
+
+Adding the dead-money row to the model, each extra point of cap share in it goes with about 0.12 fewer points per game, 0.11 less offensive EPA, 0.10 less defensive EPA and 0.17 fewer places in the final standings. All four are significant under all six starter definitions. It hurts offense and defense about equally, so it behaves like a team-wide signal, not a position effect. The model's explanatory power for point differential rises from about 10% to 16%.
+
+It also changes the position results. Part of what looked like a position effect was this: QB falls from +0.31 to +0.26 points per game (still clearly positive, interval +0.16 to +0.35), and WR, OL, EDGE and CB drop below the 5% line on point differential. Their side-specific results (WR and OL on offensive EPA, EDGE and CB on defensive EPA) hold up, and tight end still fails the placebo check.
+
+I would not read this as dead money costing wins. Last season's dead money does not predict this season's results, only the same season's does. That fits teams that fall out of contention cutting players and leaving cap unspent, as much as it fits a poorly built roster. It is a good marker of a struggling team, and I cannot tell whether it is a cause.
+
 ## What I would be careful about
 
 - **Association, not causation.** Teams choose where to spend, and good teams may pay stars because they are good.
 - **Cap hit is an accounting number.** Restructures and late-contract spikes inflate it, so it is an imperfect measure of what a player costs.
-- **Partial coverage.** The cap data covers part of the official cap, so I use shares.
+- **Partial coverage.** The cap data covers part of the official cap, so I use shares. The dead-money measure is the leftover, so it also absorbs unspent cap and each team's carryover, and it relies on the base cap figures I typed in.
 - **Small samples at the edges.** There are 59 team-seasons at the top of QB spending and about 76 seasons where the starter missed four or more weeks.
-- **Many comparisons.** Ten positions across several outcomes means a few significant results are expected by chance. The pattern across results is what gives me confidence, more than any single p-value.
+- **Many comparisons.** Eleven rows across several outcomes means a few significant results are expected by chance. The pattern across results is what gives me confidence, more than any single p-value.
 
 ## How I checked myself
 
 - Reran the key findings under six definitions of "starter".
+- Checked that last season's dead money does not predict this season, which kept me from reading it as a cause.
 - Controlled for rookie-scale contracts.
 - Added the offense-versus-defense placebo test, which is what caught the tight end result.
 - Used last season's values to separate injury effects from roster quality.

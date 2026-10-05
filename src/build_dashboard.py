@@ -4,7 +4,7 @@ Reads data/*.parquet (run src/build_data.py first), refits the notebook's joint 
 results plus the 416 team-season rows into src/dashboard_template.html.
 
 Model estimates match analysis.ipynb sections 2, 7 and 8:
-  outcome ~ starter cap share (pp) for all 10 positions + special teams, bench spending as the reference,
+  outcome ~ starter cap share (pp) for all 10 positions + special teams + dead money, bench spending as the reference,
   season fixed effects, standard errors clustered by team. "Robust" = how many of the 6 starter definitions
   keep the coefficient significant at 5%.
 """
@@ -20,6 +20,8 @@ from build_data import BASELINE_RULE, STARTER_RULES, assign_roles, share_table  
 
 ROOT = Path(__file__).resolve().parent.parent
 POS = ["QB", "RB", "WR", "TE", "OL", "DL", "EDGE", "LB", "CB", "S"]
+DEAD = "DEAD"   # the 11th row: dead money + unspent cap, as a share of tracked cap (not a position)
+ALL = POS + [DEAD]
 OUTCOMES = {"pd": "pt_diff_pg", "off": "off", "dfn": "dfn", "fin": "finish"}  # dashboard key -> column
 FLIPPED = {"fin"}  # finish is a rank (1 = best); estimates are shown as places GAINED so positive always means better
 TEAM_NAMES = {
@@ -42,10 +44,11 @@ def load_outcomes(ts: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def with_shares(ps: pd.DataFrame, rule: dict, outcomes: pd.DataFrame) -> pd.DataFrame:
+def with_shares(ps: pd.DataFrame, rule: dict, outcomes: pd.DataFrame, dead: pd.DataFrame) -> pd.DataFrame:
     p = ps.copy()
     p["role"] = assign_roles(p, rule)
-    d = share_table(p).merge(outcomes, on=["season", "team"])
+    d = share_table(p).merge(outcomes, on=["season", "team"]).merge(dead, on=["season", "team"])
+    d["DEAD_pp"] = d["dead_m"] / d["tracked_cap_m"] * 100
     for pos in POS:
         d[f"{pos}_st"] = d[f"{pos}_starter_share"] * 100
     d["ST_pct"] = d["ST_all_share"] * 100
@@ -53,7 +56,7 @@ def with_shares(ps: pd.DataFrame, rule: dict, outcomes: pd.DataFrame) -> pd.Data
 
 
 def joint_fit(d: pd.DataFrame, y: str):
-    rhs = " + ".join(f"{p}_st" for p in POS) + " + ST_pct"
+    rhs = " + ".join(f"{p}_st" for p in POS) + " + ST_pct + DEAD_pp"
     return smf.ols(f"{y} ~ {rhs} + C(season)", d).fit(cov_type="cluster", cov_kwds={"groups": d["team"]})
 
 
@@ -61,36 +64,38 @@ def main() -> None:
     ts = pd.read_parquet(ROOT / "data" / "team_season.parquet")
     ps = pd.read_parquet(ROOT / "data" / "player_season.parquet")
     outcomes = load_outcomes(ts)
+    dead = ts[["season", "team", "dead_m"]]
 
     # robustness: significance of each coefficient under each starter definition
-    sig_count = {k: {p: 0 for p in POS} for k in OUTCOMES}
+    term = lambda pos: "DEAD_pp" if pos == DEAD else f"{pos}_st"
+    sig_count = {k: {p: 0 for p in ALL} for k in OUTCOMES}
     base = {}
     for name, rule in STARTER_RULES.items():
-        d = with_shares(ps, rule, outcomes)
+        d = with_shares(ps, rule, outcomes, dead)
         for key, col in OUTCOMES.items():
             m = joint_fit(d, col)
-            for pos in POS:
-                sig_count[key][pos] += int(m.pvalues[f"{pos}_st"] < 0.05)
+            for pos in ALL:
+                sig_count[key][pos] += int(m.pvalues[term(pos)] < 0.05)
             if name == BASELINE_RULE:
                 ci, sign = m.conf_int(), (-1 if key in FLIPPED else 1)
-                base[key] = {pos: {"coef": sign * m.params[f"{pos}_st"],
-                                   "lo": min(sign * ci.loc[f"{pos}_st", 0], sign * ci.loc[f"{pos}_st", 1]),
-                                   "hi": max(sign * ci.loc[f"{pos}_st", 0], sign * ci.loc[f"{pos}_st", 1]),
-                                   "p": m.pvalues[f"{pos}_st"]} for pos in POS}
+                base[key] = {pos: {"coef": sign * m.params[term(pos)],
+                                   "lo": min(sign * ci.loc[term(pos), 0], sign * ci.loc[term(pos), 1]),
+                                   "hi": max(sign * ci.loc[term(pos), 0], sign * ci.loc[term(pos), 1]),
+                                   "p": m.pvalues[term(pos)]} for pos in ALL}
                 base[key]["_r2"] = m.rsquared
 
     findings = {key: [{"pos": pos, **{k: round(float(v), 4) for k, v in base[key][pos].items()}, "robust": sig_count[key][pos]}
-                      for pos in POS] for key in OUTCOMES}
+                      for pos in ALL] for key in OUTCOMES}
 
     rows = []
     d0 = ts.merge(outcomes[["season", "team", "off", "dfn"]], on=["season", "team"])
     for r in d0.itertuples():
         rows.append({"s": int(r.season), "t": r.team, "pd": round(r.pt_diff_pg, 2), "w": round(r.win_pct, 3),
                      "off": round(r.off, 2), "dfn": round(r.dfn, 2), "fin": int(r.finish), "cap": round(r.tracked_cap_m, 1),
-                     "st": [round(getattr(r, f"{p}_starter_share") * 100, 2) for p in POS],
-                     "usd": [round(getattr(r, f"{p}_starter"), 2) for p in POS]})
+                     "st": [round(getattr(r, f"{p}_starter_share") * 100, 2) for p in POS] + [round(r.dead_m / r.tracked_cap_m * 100, 2)],
+                     "usd": [round(getattr(r, f"{p}_starter"), 2) for p in POS] + [round(r.dead_m, 2)]})
 
-    data = {"pos": POS, "teams": TEAM_NAMES, "rows": rows, "findings": findings,
+    data = {"pos": ALL, "teams": TEAM_NAMES, "rows": rows, "findings": findings,
             "r2": {k: round(float(base[k]["_r2"]), 3) for k in OUTCOMES},
             "seasons": [int(ts.season.min()), int(ts.season.max())]}
 

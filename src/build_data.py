@@ -9,6 +9,8 @@ Sources (all via nflreadpy / nflverse):
 Outputs to data/:
   player_season.parquet  one row per player-team-season: position group, cap $M, snap share, starter flag
   team_season.parquet    one row per team-season: cap $M and share by position group x role, plus results
+                         (dead_m = base cap minus tracked cap hits: dead money plus unspent cap; can be slightly negative
+                          when carryover lifts a team's cap above the base)
                          (orig_slot = pre-trade first-round slot in the next draft, 1 = worst finish ... 32 = champion;
                           finish = 33 - orig_slot, so 1 = best finish ... 32 = worst)
   qb_season.parquet      one row per passer-season: regular-season pass plays and total EPA
@@ -34,6 +36,9 @@ STARTER_RULES = {
     "snap share >= 50%": {"share": 0.50},
     "snap share >= 66%": {"share": 0.66},
 }
+# league-wide base salary cap by season, $M (before each team's carryover and adjustments)
+BASE_CAP = {2013: 123.0, 2014: 133.0, 2015: 143.28, 2016: 155.27, 2017: 167.0, 2018: 177.2, 2019: 188.2,
+            2020: 198.2, 2021: 182.5, 2022: 208.2, 2023: 224.8, 2024: 255.4, 2025: 279.2}
 OUT = Path(__file__).resolve().parent.parent / "data"
 
 NICKNAME_TO_ABBR = {
@@ -290,6 +295,9 @@ def main() -> None:
     ps.to_parquet(OUT / "player_season.parquet", index=False)
 
     wide = share_table(ps)
+    # The contract data has no dead cap (a released player's remaining bonus is not in his season history), so
+    # dead money is recovered as a residual: base cap minus tracked cap hits. It also holds any cap left unspent.
+    wide["dead_m"] = wide["season"].map(BASE_CAP) - wide["tracked_cap_m"]
 
     qb1 = ps[(ps["pos_group"] == "QB") & (ps["role"] == "starter")] \
         .rename(columns={"rookie_deal": "qb1_rookie_deal", "draft_overall": "qb1_draft_overall", "cap_m": "qb1_cap_m"}) \
