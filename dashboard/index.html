@@ -48,8 +48,8 @@ p { margin: 0; }
 .lead b { color: var(--ink); font-weight: 600; }
 
 /* filter row */
-.filters { margin-top: 24px; background: var(--page);
-  padding-block: 10px; border-bottom: 1px solid var(--grid); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 0 0 12px; }
+.scope { color: var(--muted); font-size: .8rem; padding-bottom: 9px; flex: 1 1 11rem; max-width: 46ch; }
 .field { display: grid; gap: 3px; min-width: 0; }
 .field label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 select, button { font: inherit; color: var(--ink); }
@@ -59,11 +59,9 @@ button.link { min-height: 36px; padding: 0 10px; border: 0; background: none; co
 button.link:hover { background: var(--wash); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
 
-/* sticky only where the bar fits on one row and leaves room to read */
-@media (min-width: 1000px) and (min-height: 700px) { .filters { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; } }
-
 /* sections and cards */
-section { margin-top: 40px; }
+section { margin-top: 44px; }
+header + section { margin-top: 32px; }
 .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 8px 16px; margin-bottom: 12px; }
 .head p { color: var(--ink2); max-width: 70ch; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 10px; min-width: 0; }
@@ -143,15 +141,6 @@ footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
     </ul>
   </header>
 
-  <div class="filters" role="group" aria-label="Filters">
-    <div class="field"><label for="f-outcome">Outcome</label>
-      <select id="f-outcome"><option value="pd">Point differential</option><option value="off">Offense EPA</option><option value="dfn">Defense EPA</option></select></div>
-    <div class="field"><label for="f-pos">Position</label><select id="f-pos"></select></div>
-    <div class="field"><label for="f-from">From</label><select id="f-from"></select></div>
-    <div class="field"><label for="f-to">To</label><select id="f-to"></select></div>
-    <div class="field"><label for="f-team">Team</label><select id="f-team"></select></div>
-    <button class="link" id="reset" type="button">Reset</button>
-  </div>
 
   <section id="s-find" aria-labelledby="h-find">
     <div class="head">
@@ -161,12 +150,16 @@ footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
       </div>
       <div class="seg" role="group" aria-label="Findings view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
     </div>
+    <div class="controls" role="group" aria-label="Controls for the effects chart">
+      <div class="field"><label for="find-outcome">Outcome</label><select id="find-outcome"></select></div>
+      <span class="scope">Applies to this section only.</span>
+    </div>
     <div class="card">
       <div class="chart" id="find-chart"></div>
       <div class="keyrow" id="find-key">
         <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" class="dot-sig"/></svg>Significant at 5%</span>
         <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4" class="dot-ns"/></svg>Not significant</span>
-        <span class="k">Lines are 95% intervals. Click a row to explore it below.</span>
+        <span class="k">Lines are 95% intervals. Click a row to open it in the explorer below; the shaded row is the position open there now.</span>
       </div>
     </div>
     <p class="note" id="find-note"></p>
@@ -176,6 +169,14 @@ footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
     <div class="head">
       <div><h2 id="h-exp">Position explorer</h2><p id="exp-sub"></p></div>
       <div class="seg" role="group" aria-label="Explorer view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
+    </div>
+    <div class="controls" role="group" aria-label="Controls for the position explorer">
+      <div class="field"><label for="exp-outcome">Outcome</label><select id="exp-outcome"></select></div>
+      <div class="field"><label for="exp-pos">Position</label><select id="exp-pos"></select></div>
+      <div class="field"><label for="exp-from">From</label><select id="exp-from"></select></div>
+      <div class="field"><label for="exp-to">To</label><select id="exp-to"></select></div>
+      <button class="link" id="exp-reset" type="button">Reset</button>
+      <span class="scope">Applies to this section only.</span>
     </div>
     <div class="two">
       <div class="card">
@@ -194,6 +195,13 @@ footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
     <div class="head">
       <div><h2 id="h-team">Team explorer</h2><p id="team-sub"></p></div>
       <div class="seg" role="group" aria-label="Team view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
+    </div>
+    <div class="controls" role="group" aria-label="Controls for the team explorer">
+      <div class="field"><label for="team-team">Team</label><select id="team-team"></select></div>
+      <div class="field"><label for="team-from">From</label><select id="team-from"></select></div>
+      <div class="field"><label for="team-to">To</label><select id="team-to"></select></div>
+      <button class="link" id="team-reset" type="button">Reset</button>
+      <span class="scope">Applies to this section only.</span>
     </div>
     <div class="card">
       <div class="chart scroll-x" id="team-chart"></div>
@@ -245,8 +253,10 @@ const NOTE = {
   off: "QB, WR and OL help the offense. Defensive positions show nothing here, as they should.",
   dfn: "EDGE, CB and interior DL help the defense. Tight end should show nothing here, but it shows a significant effect, so its other results are probably noise.",
 };
-const DEFAULTS = { outcome: "pd", pos: "QB", from: DATA.seasons[0], to: DATA.seasons[1], team: "KC" };
-const state = Object.assign({ view: { find: "chart", exp: "chart", team: "chart" }, pinned: null, hover: null }, DEFAULTS);
+const SEASONS = { from: DATA.seasons[0], to: DATA.seasons[1] };
+const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", ...SEASONS } };
+// each section owns its controls: find = effects chart, exp = position explorer, tm = team explorer
+const state = { find: { ...DEFAULTS.find }, exp: { ...DEFAULTS.exp }, tm: { ...DEFAULTS.tm }, view: { find: "chart", exp: "chart", team: "chart" }, pinned: null, hover: null };
 
 /* ---------- helpers ---------- */
 function s(tag, attrs, kids) {
@@ -295,7 +305,7 @@ const league = {};   // season -> mean starter share per position
 const sd = POS.map((_, i) => { const v = ROWS.map(r => r.st[i]), m = v.reduce((a, b) => a + b) / v.length; return Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length); });
 for (const r of ROWS) { (league[r.s] = league[r.s] || { n: 0, sum: POS.map(() => 0) }).n++; r.st.forEach((v, i) => league[r.s].sum[i] += v); }
 const lgMean = (season, i) => league[season].sum[i] / league[season].n;
-const visible = () => ROWS.filter(r => r.s >= state.from && r.s <= state.to);
+const visible = () => ROWS.filter(r => r.s >= state.exp.from && r.s <= state.exp.to);
 function fe(rows, xf, yf) {   // within-season demeaning = season fixed effects
   const g = {}; rows.forEach(r => { (g[r.s] = g[r.s] || []).push(r); });
   let sxy = 0, sxx = 0, syy = 0;
@@ -315,7 +325,7 @@ function table(cols, rows) {
 /* ---------- 1. findings ---------- */
 function renderFindings() {
   const host = $("#find-chart"); host.replaceChildren();
-  const o = state.outcome, data = DATA.findings[o].slice().sort((a, b) => b.coef - a.coef);
+  const o = state.find.outcome, data = DATA.findings[o].slice().sort((a, b) => b.coef - a.coef);
   $("#find-note").textContent = NOTE[o] + " Together the positions explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + ".";
   $("#find-key").hidden = state.view.find === "table";
   if (state.view.find === "table") {
@@ -337,7 +347,7 @@ function renderFindings() {
     svg.appendChild(s("text", { class: "t-muted", x: W - mR + 22, y: mT - 2, text: "6 starter rules" }));
   }
   data.forEach((d, i) => {
-    const cy = mT + rowH * i + rowH / 2, sig = d.p < 0.05, selected = d.pos === state.pos;
+    const cy = mT + rowH * i + rowH / 2, sig = d.p < 0.05, selected = d.pos === state.exp.pos;
     if (selected) svg.appendChild(s("rect", { class: "band", x: 0, y: cy - rowH / 2 + 1, width: W, height: rowH - 2, rx: 6 }));
     svg.appendChild(s("text", { class: selected ? "t-strong" : "t-ink", x: 4, y: cy + 4, text: d.pos }));
     svg.appendChild(s("line", { class: "whisker", x1: x(d.lo), x2: x(d.hi), y1: cy, y2: cy }));
@@ -349,7 +359,7 @@ function renderFindings() {
     hit.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()));
     hit.addEventListener("focus", () => { const b = hit.getBoundingClientRect(); showTip(b.left + 80, b.top, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()); });
     hit.addEventListener("blur", hideTip); hit.addEventListener("pointerleave", hideTip);
-    const choose = () => { state.pos = d.pos; $("#f-pos").value = d.pos; renderExplorer(); renderFindings(); $("#s-exp").scrollIntoView({ behavior: "smooth", block: "start" }); };
+    const choose = () => { state.exp.pos = d.pos; state.exp.outcome = o; $("#exp-pos").value = d.pos; $("#exp-outcome").value = o; renderExplorer(); renderFindings(); $("#s-exp").scrollIntoView({ behavior: "smooth", block: "start" }); };
     hit.addEventListener("click", choose); hit.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } });
     svg.appendChild(hit);
   });
@@ -359,11 +369,11 @@ function renderFindings() {
 /* ---------- 2. position explorer ---------- */
 function renderExplorer() {
   const host = $("#exp-chart"), stat = $("#exp-stat"); host.replaceChildren(); stat.replaceChildren();
-  const pi = POS.indexOf(state.pos), o = state.outcome, rows = visible();
-  $("#exp-sub").textContent = `${POSNAME[state.pos]} starters' share of cap against ${OUT[o].lc}, ${state.from}–${state.to} (${rows.length} team-seasons).`;
+  const pi = POS.indexOf(state.exp.pos), o = state.exp.outcome, rows = visible();
+  $("#exp-sub").textContent = `${POSNAME[state.exp.pos]} starters' share of cap against ${OUT[o].lc}, ${state.exp.from}–${state.exp.to} (${rows.length} team-seasons).`;
   const xf = r => r.st[pi], yf = r => r[o];
   const f = rows.length > 2 ? fe(rows, xf, yf) : { slope: 0, r: 0 };
-  const mine = DATA.findings[o].find(d => d.pos === state.pos);
+  const mine = DATA.findings[o].find(d => d.pos === state.exp.pos);
   stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Estimate with other positions held fixed" }),
     h("div", { class: "big", text: fmt(mine.coef, 2) + " " + OUT[o].short }),
     h("div", { class: "small", text: `per +1 pt of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions. Uses all seasons.` })]));
@@ -372,7 +382,7 @@ function renderExplorer() {
     h("div", { class: "small", text: `per +1 pt of cap share, correlation ${f.r.toFixed(2)}, season averages removed. Ignores other positions, so it can differ from the estimate above.` })]));
   if (state.view.exp === "table") {
     const sorted = rows.slice().sort((a, b) => xf(b) - xf(a));
-    host.appendChild(table(["Team", "Season", state.pos + " starter share %", state.pos + " starter cap $M", OUT[o].label, "Win %"],
+    host.appendChild(table(["Team", "Season", state.exp.pos + " starter share %", state.exp.pos + " starter cap $M", OUT[o].label, "Win %"],
       sorted.map(r => [r.t, r.s, r.st[pi].toFixed(1), r.usd[pi].toFixed(1), fmt(r[o], 1), r.w.toFixed(3)])));
     return;
   }
@@ -381,14 +391,14 @@ function renderExplorer() {
   const xmax = Math.max(...xs) * 1.05, ylo = Math.min(...ys), yhi = Math.max(...ys), yp = (yhi - ylo) * 0.06;
   const x = linear(0, xmax, mL, W - mR), y = linear(ylo - yp, yhi + yp, H - mB, mT);
   const xt = niceTicks(0, xmax, W < 520 ? 4 : 6), yt = niceTicks(ylo - yp, yhi + yp, 6);
-  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Scatter of ${state.pos} starter cap share against ${OUT[o].lc}. Table view has the data.` });
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Scatter of ${state.exp.pos} starter cap share against ${OUT[o].lc}. Table view has the data.` });
   yt.ticks.forEach(t => {
     svg.appendChild(s("line", { class: Math.abs(t) < 1e-9 ? "axis" : "grid", x1: mL, x2: W - mR, y1: y(t), y2: y(t) }));
     svg.appendChild(s("text", { class: "t-muted", x: mL - 8, y: y(t) + 4, "text-anchor": "end", text: yt.dec ? t.toFixed(yt.dec) : String(t) }));
   });
   xt.ticks.forEach(t => svg.appendChild(s("text", { class: "t-muted", x: x(t), y: H - mB + 18, "text-anchor": "middle", text: xt.dec ? t.toFixed(xt.dec) + "%" : t + "%" })));
   svg.appendChild(s("line", { class: "axis", x1: mL, x2: W - mR, y1: H - mB, y2: H - mB }));
-  svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 6, "text-anchor": "middle", text: `${state.pos} starters' share of tracked cap` }));
+  svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 6, "text-anchor": "middle", text: `${state.exp.pos} starters' share of tracked cap` }));
   svg.appendChild(s("text", { x: 0, y: mT + 2, text: OUT[o].short, class: "t-muted" }));
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
   if (rows.length > 2) { const x0 = 0, x1 = xmax; svg.appendChild(s("line", { class: "trend", x1: x(x0), x2: x(x1), y1: y(my + f.slope * (x0 - mx)), y2: y(my + f.slope * (x1 - mx)) })); }
@@ -405,7 +415,7 @@ function renderExplorer() {
     for (const d of dots) { const dd = (d.px - px) ** 2 + (d.py - py) ** 2; if (dd < bd) { bd = dd; best = d; } }
     if (best && Math.sqrt(bd) <= 36 * k) {
       state.hover = best.r.t; apply(); const r = best.r;
-      showTip(e.clientX, e.clientY, fmt(r[o], 1) + " " + OUT[o].short, [`${DATA.teams[r.t]}, ${r.s}`, `${state.pos} starters: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M)`, `Win % ${r.w.toFixed(3)}`]);
+      showTip(e.clientX, e.clientY, fmt(r[o], 1) + " " + OUT[o].short, [`${DATA.teams[r.t]}, ${r.s}`, `${state.exp.pos} starters: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M)`, `Win % ${r.w.toFixed(3)}`]);
     } else { state.hover = null; apply(); hideTip(); }
   });
   overlay.addEventListener("pointerleave", () => { state.hover = null; apply(); hideTip(); });
@@ -416,8 +426,8 @@ function renderExplorer() {
 /* ---------- 3. team explorer ---------- */
 function renderTeam() {
   const host = $("#team-chart"); host.replaceChildren();
-  const tm = state.team, rows = ROWS.filter(r => r.t === tm && r.s >= state.from && r.s <= state.to).sort((a, b) => a.s - b.s);
-  $("#team-sub").textContent = `${DATA.teams[tm]}: results by season, and where its starter money sat relative to the league average that year.`;
+  const tm = state.tm.team, rows = ROWS.filter(r => r.t === tm && r.s >= state.tm.from && r.s <= state.tm.to).sort((a, b) => a.s - b.s);
+  $("#team-sub").textContent = `${DATA.teams[tm]}: results by season, and where its starter money sat relative to the league average that year. The bars always show point differential.`;
   $("#team-key").hidden = state.view.team === "table";
   if (state.view.team === "table") {
     host.appendChild(table(["Season", "Pt diff/g", "Win %", ...POS.map(p => p + " %")], rows.map(r => [r.s, fmt(r.pd, 1), r.w.toFixed(3), ...r.st.map(v => v.toFixed(1))])));
@@ -459,21 +469,32 @@ function renderTeam() {
   host.appendChild(svg);
 }
 
-/* ---------- controls ---------- */
+/* ---------- controls: every control belongs to one section ---------- */
 function fill(sel, items, value) { sel.replaceChildren(...items.map(([v, l]) => h("option", { value: v, text: l }))); sel.value = value; }
-fill($("#f-pos"), POS.map(p => [p, POSNAME[p]]), state.pos);
+const OUTS = Object.keys(OUT).map(k => [k, OUT[k].label]);
 const years = []; for (let y = DATA.seasons[0]; y <= DATA.seasons[1]; y++) years.push([y, String(y)]);
-fill($("#f-from"), years, state.from); fill($("#f-to"), years, state.to);
-fill($("#f-team"), teams.map(t => [t, DATA.teams[t]]), state.team);
+fill($("#find-outcome"), OUTS, state.find.outcome);
+fill($("#exp-outcome"), OUTS, state.exp.outcome); fill($("#exp-pos"), POS.map(p => [p, POSNAME[p]]), state.exp.pos);
+fill($("#exp-from"), years, state.exp.from); fill($("#exp-to"), years, state.exp.to);
+fill($("#team-team"), teams.map(t => [t, DATA.teams[t]]), state.tm.team); fill($("#team-from"), years, state.tm.from); fill($("#team-to"), years, state.tm.to);
 const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); };
-$("#f-outcome").addEventListener("change", e => { state.outcome = e.target.value; renderAll(); });
-$("#f-pos").addEventListener("change", e => { state.pos = e.target.value; renderFindings(); renderExplorer(); });
-$("#f-from").addEventListener("change", e => { state.from = +e.target.value; if (state.from > state.to) { state.to = state.from; $("#f-to").value = state.to; } renderExplorer(); renderTeam(); });
-$("#f-to").addEventListener("change", e => { state.to = +e.target.value; if (state.to < state.from) { state.from = state.to; $("#f-from").value = state.from; } renderExplorer(); renderTeam(); });
-$("#f-team").addEventListener("change", e => { state.team = e.target.value; renderTeam(); });
-$("#reset").addEventListener("click", () => {
-  Object.assign(state, DEFAULTS, { pinned: null, hover: null });
-  $("#f-outcome").value = state.outcome; $("#f-pos").value = state.pos; $("#f-from").value = state.from; $("#f-to").value = state.to; $("#f-team").value = state.team; renderAll();
+function seasonRange(st, fromSel, toSel, render) {   // keeps from <= to when either changes
+  $(fromSel).addEventListener("change", e => { st.from = +e.target.value; if (st.from > st.to) { st.to = st.from; $(toSel).value = st.to; } render(); });
+  $(toSel).addEventListener("change", e => { st.to = +e.target.value; if (st.to < st.from) { st.from = st.to; $(fromSel).value = st.from; } render(); });
+}
+$("#find-outcome").addEventListener("change", e => { state.find.outcome = e.target.value; renderFindings(); });
+$("#exp-outcome").addEventListener("change", e => { state.exp.outcome = e.target.value; renderExplorer(); });
+$("#exp-pos").addEventListener("change", e => { state.exp.pos = e.target.value; renderExplorer(); renderFindings(); });   // chart 1 shades the open position
+seasonRange(state.exp, "#exp-from", "#exp-to", renderExplorer);
+$("#team-team").addEventListener("change", e => { state.tm.team = e.target.value; renderTeam(); });
+seasonRange(state.tm, "#team-from", "#team-to", renderTeam);
+$("#exp-reset").addEventListener("click", () => {
+  Object.assign(state.exp, DEFAULTS.exp); state.pinned = null; state.hover = null;
+  $("#exp-outcome").value = state.exp.outcome; $("#exp-pos").value = state.exp.pos; $("#exp-from").value = state.exp.from; $("#exp-to").value = state.exp.to;
+  renderExplorer(); renderFindings();
+});
+$("#team-reset").addEventListener("click", () => {
+  Object.assign(state.tm, DEFAULTS.tm); $("#team-team").value = state.tm.team; $("#team-from").value = state.tm.from; $("#team-to").value = state.tm.to; renderTeam();
 });
 const seg = { "s-find": ["find", renderFindings], "s-exp": ["exp", renderExplorer], "s-team": ["team", renderTeam] };
 for (const id in seg) {
