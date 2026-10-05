@@ -4,17 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>NFL Position Value</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&amp;display=swap">
 <style>
-/* Layout: one column, summary first. A single filter row scopes everything below it; charts sit on surface
-   cards, text sits on the page plane. Marks follow the dataviz mark specs (thin, hairline grid, 2px rings). */
+/* Point of view: a game-day stat sheet. Condensed scoreboard display type for the title, section heads and figures; hash-mark rules
+   under section heads like a sideline; Offense/Defense grouping because that is how football is organised; dollar equivalents on the
+   cap axis. Body stays system sans for reading and speed. Chart marks follow the dataviz specs (thin, hairline grid, 2px rings).
+   Each chart owns its controls; charts sit on surface cards, text on the page plane. */
 :root {
   color-scheme: light;
   --page: #f9f9f7;  --surface: #fcfcfb;
-  --ink: #0b0b0b;   --ink2: #52514e;   --muted: #898781;
-  --grid: #e1e0d9;  --axis: #c3c2b7;   --border: rgba(11,11,11,.10);
+  --ink: #0b0b0b;   --ink2: #52514e;   --muted: #6b6a65;
+  --grid: #e1e0d9;  --axis: #c3c2b7;   --border: rgba(11,11,11,.14);
   --s1: #2a78d6;    --s2: #eb6834;     --neutral: #f0efec;
-  --wash: rgba(42,120,214,.08);
+  --wash: rgba(42,120,214,.12);
+  --turf-line: rgba(47,107,72,.50);
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -24,6 +31,7 @@
     --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
     --s1: #3987e5; --s2: #d95926; --neutral: #383835;
     --wash: rgba(57,135,229,.14);
+    --turf-line: rgba(95,181,133,.45);
   }
 }
 :root[data-theme="dark"] {
@@ -33,60 +41,79 @@
   --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
   --s1: #3987e5; --s2: #d95926; --neutral: #383835;
   --wash: rgba(57,135,229,.14);
+  --turf-line: rgba(95,181,133,.45);
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 var(--sans); }
-.wrap { max-width: 1080px; margin-inline: auto; padding-inline: 16px; padding-block: 28px 56px; }
-h1 { font-size: clamp(1.6rem, 3.6vw, 2.2rem); line-height: 1.15; margin: 0 0 8px; letter-spacing: -0.01em; text-wrap: balance; }
-h2 { font-size: 1.2rem; margin: 0 0 4px; letter-spacing: -0.005em; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 12px; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.55 var(--sans); }
+::selection { background: var(--s1); color: #fff; }
+.wrap { max-width: 1080px; margin-inline: auto; padding-inline: 16px; padding-block: 36px 64px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+h1 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(2.5rem, 7.2vw, 4.4rem); line-height: .98;
+  letter-spacing: .005em; margin: 0 0 18px; max-width: 15em; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: 1.75rem; line-height: 1.05; letter-spacing: .03em; margin: 0 0 6px; }
+h2:focus { outline: none; }
 p { margin: 0; }
-.sub { color: var(--ink2); max-width: 68ch; }
-.lead { margin-top: 20px; display: grid; gap: 10px; max-width: 76ch; padding: 0; list-style: none; }
-.lead li { padding-left: 14px; position: relative; color: var(--ink2); }
-.lead li::before { content: ""; position: absolute; left: 0; top: .62em; width: 6px; height: 6px; border-radius: 50%; background: var(--s1); }
-.lead b { color: var(--ink); font-weight: 600; }
+.lead { font-size: clamp(1.1rem, 2.2vw, 1.3rem); line-height: 1.45; max-width: 62ch; }
+.lead b { font-weight: 700; }
+.sub { color: var(--ink2); max-width: 70ch; margin-top: 14px; font-size: .95rem; }
+a { color: var(--s1); text-underline-offset: 3px; }
 
-/* filter row */
+/* controls: each belongs to one chart */
 .controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 0 0 12px; }
-.scope { color: var(--muted); font-size: .8rem; padding-bottom: 9px; flex: 1 1 11rem; max-width: 46ch; }
+.scope { color: var(--muted); font-size: .85rem; padding-bottom: 10px; flex: 1 1 14rem; max-width: 52ch; }
 .field { display: grid; gap: 3px; min-width: 0; }
-.field label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.field label { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 select, button { font: inherit; color: var(--ink); }
-select { min-height: 36px; padding: 0 28px 0 10px; border: 1px solid var(--axis); border-radius: 6px; background: var(--surface); max-width: 100%; }
+select { min-height: 38px; padding: 0 28px 0 10px; border: 1px solid var(--axis); border-radius: 6px; background: var(--surface); max-width: 100%; }
 select:hover { background: var(--wash); }
-button.link { min-height: 36px; padding: 0 10px; border: 0; background: none; color: var(--ink2); cursor: pointer; border-radius: 6px; }
+button.link { min-height: 38px; padding: 0 10px; border: 0; background: none; color: var(--ink2); cursor: pointer; border-radius: 6px; }
 button.link:hover { background: var(--wash); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+@media (pointer: coarse), (max-width: 560px) {
+  select, button.link { min-height: 44px; }
+  .seg button { min-height: 44px; min-width: 44px; }
+}
 
 /* sections and cards */
-section { margin-top: 44px; }
-header + section { margin-top: 32px; }
-.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 8px 16px; margin-bottom: 12px; }
+section { margin-top: 48px; }
+header + section { margin-top: 36px; }
+.head { position: relative; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 8px 16px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--turf-line); }
+.head::after { content: ""; position: absolute; left: 0; right: 0; bottom: 1px; height: 6px; background: var(--turf-line); pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6'%3E%3Crect width='1' height='6'/%3E%3C/svg%3E") repeat-x left bottom / 12px 6px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6'%3E%3Crect width='1' height='6'/%3E%3C/svg%3E") repeat-x left bottom / 12px 6px; }
 .head p { color: var(--ink2); max-width: 70ch; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 10px; min-width: 0; }
 .seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden; flex: none; }
-.seg button { border: 0; background: none; padding: 5px 12px; cursor: pointer; font-size: .85rem; color: var(--ink2); }
+.seg button { border: 0; background: none; padding: 6px 12px; cursor: pointer; font-size: .875rem; color: var(--ink2); }
 .seg button[aria-pressed="true"] { background: var(--wash); color: var(--ink); font-weight: 600; }
 .chart { width: 100%; min-width: 0; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .scroll-x { overflow-x: auto; }
-.keyrow { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; color: var(--ink2); font-size: .85rem; align-items: center; }
+.keyrow { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; color: var(--ink2); font-size: .875rem; align-items: center; }
 .k { display: inline-flex; align-items: center; gap: 6px; }
-.note { margin-top: 10px; color: var(--ink2); font-size: .9rem; max-width: 80ch; }
-.two { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 14px; align-items: start; }
+.note { margin-top: 10px; color: var(--ink2); font-size: .92rem; max-width: 80ch; }
+.pinbar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 6px; font-size: .92rem; min-height: 24px; }
+.pinbar strong { font-weight: 600; }
+.readout { margin-top: 10px; color: var(--ink); font-size: .92rem; min-height: 2.9em; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: start; }
 .stat { display: grid; gap: 12px; }
 .stat .card { padding: 12px 14px; }
-.stat h3 { margin: 0 0 6px; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
-.stat .big { font-size: 1.7rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
-.stat .small { color: var(--ink2); font-size: .85rem; margin-top: 4px; }
+.stat h3 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+.stat .cap { color: var(--muted); font-size: .85rem; margin: 2px 0 6px; }
+.stat .big { font-family: var(--display); font-weight: 800; font-size: 2.3rem; letter-spacing: .005em; line-height: 1.05; }
+.stat .small { color: var(--ink2); font-size: .875rem; margin-top: 4px; }
 @media (max-width: 820px) { .two { grid-template-columns: minmax(0, 1fr); } }
 
 /* chart text and marks */
 svg text { font-family: var(--sans); fill: var(--ink2); font-size: 12px; }
 svg .t-ink { fill: var(--ink); }
 svg .t-muted { fill: var(--muted); }
+svg .t-small { font-size: 10.5px; }
 svg .t-strong { fill: var(--ink); font-weight: 600; }
+svg .t-group { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; fill: var(--ink2); }
+svg .t-flag { font-size: 10.5px; font-style: italic; fill: var(--ink2); }
 .grid { stroke: var(--grid); stroke-width: 1; }
 .axis { stroke: var(--axis); stroke-width: 1; }
 .whisker { stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
@@ -95,9 +122,13 @@ svg .t-strong { fill: var(--ink); font-weight: 600; }
 .dot-ns { fill: var(--surface); stroke: var(--s1); stroke-width: 2; }
 .band { fill: var(--wash); }
 .hit { fill: transparent; cursor: pointer; }
+.kbd { fill: transparent; }
+svg .hit:focus-visible, svg .kbd:focus-visible, svg.kbd-svg:focus-visible { outline: 2px solid var(--s1); outline-offset: -2px; }
+.focusring { fill: none; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
+.pt, .focusring { pointer-events: none; }
 .pt { fill: var(--s1); fill-opacity: .55; stroke: var(--surface); stroke-width: 2; paint-order: stroke; }
 .pt.dim { fill-opacity: .18; }
-.pt.hl { fill: var(--s2); fill-opacity: 1; }
+.pt.hl { fill: var(--ink); fill-opacity: 1; }
 .trend { stroke: var(--ink2); stroke-width: 2; stroke-linecap: round; opacity: .75; }
 .col-pos { fill: var(--s1); } .col-neg { fill: var(--s2); }
 .cell-pos { fill: var(--s1); } .cell-neg { fill: var(--s2); } .cell-base { fill: var(--neutral); }
@@ -106,41 +137,44 @@ svg .t-strong { fill: var(--ink); font-weight: 600; }
 
 /* tables */
 .tablewrap { max-height: 420px; overflow: auto; }
-table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+table { border-collapse: collapse; width: 100%; font-size: .875rem; }
 th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
 th:first-child, td:first-child { text-align: left; }
-thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 500; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; }
+thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 500; font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
 
 /* tooltip */
 #tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--axis);
-  border-radius: 8px; padding: 8px 10px; font-size: .82rem; max-width: 260px; box-shadow: 0 6px 20px rgba(0,0,0,.14); display: none; }
+  border-radius: 8px; padding: 8px 10px; font-size: .85rem; max-width: 260px; display: none; }
 #tip .v { font-size: 1rem; font-weight: 600; }
 #tip .r { color: var(--ink2); margin-top: 2px; }
 
-/* beyond the model */
-.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
-.facts .card { padding: 14px; }
-.facts .big { font-size: 1.9rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; }
-.facts p { color: var(--ink2); font-size: .88rem; margin-top: 6px; }
-.method { color: var(--ink2); font-size: .9rem; max-width: 80ch; display: grid; gap: 8px; }
+/* box score: injuries and depth */
+.ledger { width: 100%; border-collapse: collapse; font-size: 1rem; }
+.ledger th, .ledger td { text-align: left; white-space: normal; vertical-align: baseline; padding: 14px 18px 14px 0; border-bottom: 1px solid var(--grid); font-variant-numeric: normal; }
+.ledger th { font-weight: 600; width: 34%; }
+.ledger td.fig { font-family: var(--display); font-weight: 800; font-size: 1.9rem; line-height: 1; letter-spacing: .01em; white-space: nowrap; width: 20%; }
+.ledger td:last-child { color: var(--ink2); font-size: .95rem; padding-right: 0; }
+@media (max-width: 640px) {
+  .ledger, .ledger tbody, .ledger tr, .ledger th, .ledger td { display: block; width: auto; }
+  .ledger tr { padding: 12px 0; border-bottom: 1px solid var(--grid); }
+  .ledger th, .ledger td { border: 0; padding: 2px 0; }
+}
+.method { color: var(--ink2); font-size: .95rem; max-width: 80ch; display: grid; gap: 10px; }
 .method b { color: var(--ink); font-weight: 600; }
-footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.glossary { display: grid; gap: 10px; margin: 18px 0 0; max-width: 80ch; font-size: .95rem; }
+.glossary dt { font-weight: 600; color: var(--ink); }
+.glossary dd { margin: 2px 0 0; color: var(--ink2); }
+footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70ch; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Which NFL positions are worth paying for?</h1>
-    <p class="sub">Salary-cap spending by position against team results, 2013&ndash;2025: 416 team-seasons, 32 teams. Starters are separated from bench depth using snap counts.</p>
-    <ul class="lead">
-      <li><b>Quarterback is the clearest payoff,</b> and it works through the passing game. It holds up against rookie-contract QBs and under six different definitions of &ldquo;starter&rdquo;. The payoff tapers above roughly 14% of the cap (about $30M+ today), though the data cannot say whether it turns negative.</li>
-      <li><b>Spend lines up with the right side of the ball.</b> WR and OL help the offense. EDGE and CB help the defense, through pass defense. Interior DL helps against the run.</li>
-      <li><b>Tight end looks valuable until you notice it also &ldquo;improves&rdquo; the defense.</b> That cannot be real, so treat the TE result as noise.</li>
-      <li><b>Cap allocation explains only about 10% of team results.</b> Injuries, schedule and luck do most of the rest.</li>
-    </ul>
+    <p class="lead">Quarterback spending has the clearest payoff, <b id="lead-qb">+0.31 points per game</b> for each point of cap share, almost all of it through the passing game. Receivers, linemen, edge rushers and cornerbacks pay off on the side of the ball where they play. Tight end looks valuable too, but it fails a basic placebo check, so I treat it as noise. All of it together explains <b id="lead-r2">about 10%</b> of how teams perform.</p>
+    <p class="sub">Salary-cap spending by position against team results, 2013&ndash;2025: 416 team-seasons, 32 teams. Starters are separated from bench depth using snap counts. QB returns taper above roughly 14% of the cap (about $30M+ today), though the data cannot say whether they turn negative.</p>
   </header>
-
 
   <section id="s-find" aria-labelledby="h-find">
     <div class="head">
@@ -152,22 +186,24 @@ footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
     </div>
     <div class="controls" role="group" aria-label="Controls for the effects chart">
       <div class="field"><label for="find-outcome">Outcome</label><select id="find-outcome"></select></div>
-      <span class="scope">Applies to this section only.</span>
+      <button class="link" id="find-reset" type="button">Reset</button>
+      <span class="scope">Every chart on this page has its own controls, and they change only that chart.</span>
     </div>
     <div class="card">
       <div class="chart" id="find-chart"></div>
       <div class="keyrow" id="find-key">
         <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" class="dot-sig"/></svg>Significant at 5%</span>
         <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4" class="dot-ns"/></svg>Not significant</span>
-        <span class="k">Lines are 95% intervals. Click a row to open it in the explorer below; the shaded row is the position open there now.</span>
+        <span class="k">Lines are 95% intervals</span>
       </div>
     </div>
     <p class="note" id="find-note"></p>
+    <p class="note">Click a row to open it in the explorer below; the shaded row is the one open there now. TE is tagged because it fails the offense-versus-defense placebo check. Terms are explained under <a href="#h-method">How to read this</a>.</p>
   </section>
 
   <section id="s-exp" aria-labelledby="h-exp">
     <div class="head">
-      <div><h2 id="h-exp">Position explorer</h2><p id="exp-sub"></p></div>
+      <div><h2 id="h-exp" tabindex="-1">Position explorer</h2><p id="exp-sub"></p></div>
       <div class="seg" role="group" aria-label="Explorer view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
     </div>
     <div class="controls" role="group" aria-label="Controls for the position explorer">
@@ -176,16 +212,17 @@ footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
       <div class="field"><label for="exp-from">From</label><select id="exp-from"></select></div>
       <div class="field"><label for="exp-to">To</label><select id="exp-to"></select></div>
       <button class="link" id="exp-reset" type="button">Reset</button>
-      <span class="scope">Applies to this section only.</span>
     </div>
     <div class="two">
       <div class="card">
+        <div class="pinbar" id="pinbar" hidden></div>
         <div class="chart" id="exp-chart"></div>
         <div class="keyrow">
           <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" class="pt"/></svg>One team-season</span>
-          <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" class="pt hl"/></svg>Highlighted team (hover, click to pin)</span>
+          <span class="k"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" class="pt hl"/></svg>Highlighted team</span>
           <span class="k"><svg width="22" height="14" aria-hidden="true"><line x1="2" y1="7" x2="20" y2="7" class="trend"/></svg>Trend after removing season averages</span>
         </div>
+        <p class="note" id="exp-help"></p>
       </div>
       <div class="stat" id="exp-stat"></div>
     </div>
@@ -201,39 +238,50 @@ footer { margin-top: 36px; color: var(--muted); font-size: .82rem; }
       <div class="field"><label for="team-from">From</label><select id="team-from"></select></div>
       <div class="field"><label for="team-to">To</label><select id="team-to"></select></div>
       <button class="link" id="team-reset" type="button">Reset</button>
-      <span class="scope">Applies to this section only.</span>
     </div>
     <div class="card">
       <div class="chart scroll-x" id="team-chart"></div>
+      <p class="readout" id="team-readout" aria-live="polite"></p>
       <div class="keyrow" id="team-key">
         <span class="k"><span class="sw" style="background:var(--s1)"></span>Above 0 / spending above league average</span>
         <span class="k"><span class="sw" style="background:var(--s2)"></span>Below 0 / spending below league average</span>
-        <span class="k">Heatmap shade is scaled to how much that position&rsquo;s share varies across teams.</span>
+        <span class="k">Shade is scaled to how much that position&rsquo;s share varies across teams. Tap or use the arrow keys to read a cell.</span>
       </div>
     </div>
   </section>
 
   <section aria-labelledby="h-beyond">
     <div class="head"><div><h2 id="h-beyond">Beyond the model: injuries and depth</h2><p>From the notebook (sections 9 to 13). Bench spending looked wasteful at first; most of it is injury cost.</p></div></div>
-    <div class="facts">
-      <div class="card"><div class="big">&minus;5 pts</div><p>per game when the starting QB misses 8 weeks. Each missed week costs about 0.64.</p></div>
-      <div class="card"><div class="big">~1/5</div><p>of that damage is what a replacement QB one standard deviation better should recover, and about what we measure. The data cannot tell it from zero, and cannot rule out a benefit up to about two-fifths.</p></div>
-      <div class="card"><div class="big">~0</div><p>carry-over: last year&rsquo;s injured-reserve money does not predict this year&rsquo;s results. It is an injury effect, not a bad roster.</p></div>
-    </div>
+    <table class="ledger">
+      <caption class="sr-only">Box score of injury and depth findings</caption>
+      <tbody>
+        <tr><th scope="row">Starting QB misses 8 weeks</th><td class="fig">&minus;5 pts/game</td><td>About 0.64 points per game for each missed week.</td></tr>
+        <tr><th scope="row">A replacement QB one standard deviation better</th><td class="fig">~1/5 back</td><td>Close to what the mechanics predict. The data cannot tell it from zero, and cannot rule out a benefit up to about two-fifths.</td></tr>
+        <tr><th scope="row">Last year&rsquo;s injured-reserve money</th><td class="fig">~0 carry-over</td><td>It predicts nothing about this year, so it is an injury effect, not a badly built roster.</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <section aria-labelledby="h-method">
-    <div class="head"><div><h2 id="h-method">How to read this</h2></div></div>
+    <div class="head"><div><h2 id="h-method" tabindex="-1">How to read this</h2></div></div>
     <div class="method">
-      <p><b>Data.</b> Per-player cap hits (Over the Cap), snap counts, results and EPA/play from nflverse, 2013&ndash;2025. Cap share is a position&rsquo;s cap divided by the team&rsquo;s tracked cap, which is only part of the official cap.</p>
+      <p><b>Data.</b> Per-player cap hits (Over the Cap), snap counts, results and EPA/play from nflverse, 2013&ndash;2025. The cap data covers part of the official cap, so everything is expressed as shares.</p>
       <p><b>Starter</b> means the top-N players at a position by snaps (QB1, RB1, WR3, TE1, OL5, DL2, EDGE2, LB2, CB3, S2). Everyone else is bench.</p>
-      <p><b>Estimates</b> come from one regression per outcome with all positions together, season fixed effects and standard errors clustered by team. The k/6 column counts how many of six starter definitions keep the result significant at 5%. EPA is per 100 plays; defense is flipped so higher is better.</p>
-      <p><b>Caution.</b> These are associations, not causal effects. Ten positions across several outcomes means a few significant results are expected by chance. The full write-up, with all checks, is in <code>analysis.ipynb</code>.</p>
+      <p><b>Caution.</b> These are associations, not causal effects. Ten positions across several outcomes means a few significant results are expected by chance. The full write-up, with all checks, is in the project notebook.</p>
     </div>
+    <dl class="glossary">
+      <div><dt>Cap share</dt><dd>A position group&rsquo;s cap hits divided by the team&rsquo;s total tracked cap hits that season. One point is about $1.6M for an average team.</dd></div>
+      <div><dt>EPA (expected points added)</dt><dd>How many points a play added compared with what that situation usually yields. Here it is EPA per 100 plays, and defense is flipped so higher is better for both sides.</dd></div>
+      <div><dt>Estimate and 95% interval</dt><dd>The dot is the best estimate. The line is the range of values the data cannot rule out.</dd></div>
+      <div><dt>Significant at 5%</dt><dd>The interval excludes zero, so a true effect of zero is unlikely. With ten positions and several outcomes, a few results clear this bar by chance.</dd></div>
+      <div><dt>Significant under k of 6 starter rules</dt><dd>&ldquo;Starter&rdquo; was defined six different ways. The number counts how many definitions keep the result significant.</dd></div>
+      <div><dt>Placebo check</dt><dd>Spending on offensive positions should not move the defense, and spending on defensive positions should not move the offense. A position that does fails the check, and its result is probably noise.</dd></div>
+    </dl>
   </section>
-  <footer>Rebuild with <code>python src/build_dashboard.py</code>. Numbers on this page are generated from the same data and models as the notebook.</footer>
+  <footer>Data: nflverse, including Over the Cap contract data, 2013&ndash;2025. Every number on this page comes from the same models as the project notebook.</footer>
 </div>
 <div id="tip" role="tooltip"></div>
+<div id="sr-live" class="sr-only" aria-live="polite"></div>
 
 <script>
 const DATA = __DATA__;
@@ -248,6 +296,7 @@ const OUT = {
   dfn: { label: "Defense EPA",        lc: "defense EPA", unit: "EPA per 100 plays (higher = better defense)", short: "EPA/100", dec: 1 },
 };
 const POSNAME = { QB: "Quarterback", RB: "Running back", WR: "Wide receiver", TE: "Tight end", OL: "Offensive line", DL: "Interior DL", EDGE: "Edge rusher", LB: "Linebacker", CB: "Cornerback", S: "Safety" };
+const UNITS = [["Offense", ["QB", "RB", "WR", "TE", "OL"]], ["Defense", ["DL", "EDGE", "LB", "CB", "S"]]];
 const NOTE = {
   pd: "Quarterback is the clearest payoff. Tight end has the largest estimate and is stable across starter definitions, but it fails the offense-versus-defense test (switch to Defense EPA): stability is not evidence against noise.",
   off: "QB, WR and OL help the offense. Defensive positions show nothing here, as they should.",
@@ -273,6 +322,8 @@ function h(tag, attrs, kids) {
 }
 const fmt = (v, d = 1) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
 const fmtP = p => p < 0.001 ? "p < 0.001" : "p = " + p.toFixed(3);
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const say = text => { $("#sr-live").textContent = ""; setTimeout(() => { $("#sr-live").textContent = text; }, 30); };
 function linear(d0, d1, r0, r1) { const f = v => r0 + (v - d0) / (d1 - d0) * (r1 - r0); f.inv = p => d0 + (p - r0) / (r1 - r0) * (d1 - d0); return f; }
 function niceTicks(lo, hi, n) {
   const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0))), norm = step0 / mag;
@@ -297,9 +348,11 @@ function showTip(x, y, value, rows) {
   tip.style.top = Math.max(8, Math.min(y + 14, innerHeight - hh - 8)) + "px";
 }
 const hideTip = () => { tip.style.display = "none"; };
+document.addEventListener("pointerdown", e => { if (!e.target.closest || !e.target.closest(".chart")) hideTip(); });
 
 /* ---------- data ---------- */
 const ROWS = DATA.rows;
+const avgCap = ROWS.reduce((t, r) => t + r.cap, 0) / ROWS.length;       // average tracked cap, $M, for dollar equivalents
 const teams = Object.keys(DATA.teams).sort((a, b) => DATA.teams[a].localeCompare(DATA.teams[b]));
 const league = {};   // season -> mean starter share per position
 const sd = POS.map((_, i) => { const v = ROWS.map(r => r.st[i]), m = v.reduce((a, b) => a + b) / v.length; return Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length); });
@@ -316,6 +369,11 @@ function fe(rows, xf, yf) {   // within-season demeaning = season fixed effects
   return { slope: sxx ? sxy / sxx : 0, r: sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0 };
 }
 
+/* the lead sentence reads its two figures from the same estimates the charts use */
+const qbPd = DATA.findings.pd.find(d => d.pos === "QB");
+$("#lead-qb").textContent = fmt(qbPd.coef, 2) + " points per game";
+$("#lead-r2").textContent = "about " + Math.round(DATA.r2.pd * 100) + "%";
+
 /* ---------- table helper ---------- */
 function table(cols, rows) {
   const t = h("table", {}, [h("thead", {}, [h("tr", {}, cols.map(c => h("th", { text: c })))]), h("tbody", {}, rows.map(r => h("tr", {}, r.map(c => h("td", { text: String(c) })))))]);
@@ -325,146 +383,258 @@ function table(cols, rows) {
 /* ---------- 1. findings ---------- */
 function renderFindings() {
   const host = $("#find-chart"); host.replaceChildren();
-  const o = state.find.outcome, data = DATA.findings[o].slice().sort((a, b) => b.coef - a.coef);
+  const o = state.find.outcome, byPos = Object.fromEntries(DATA.findings[o].map(d => [d.pos, d]));
+  const groups = UNITS.map(([label, ps]) => ({ label, rows: ps.map(p => byPos[p]).sort((a, b) => b.coef - a.coef) }));
+  const all = groups.flatMap(g => g.rows);
   $("#find-note").textContent = NOTE[o] + " Together the positions explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + ".";
   $("#find-key").hidden = state.view.find === "table";
   if (state.view.find === "table") {
-    host.appendChild(table(["Position", "Effect (" + OUT[o].short + " per +1 pt cap)", "95% low", "95% high", "p-value", "Significant under (of 6 starter rules)"],
-      data.map(d => [d.pos, fmt(d.coef, 2), fmt(d.lo, 2), fmt(d.hi, 2), d.p < 0.001 ? "<0.001" : d.p.toFixed(3), d.robust + "/6"])));
+    host.appendChild(table(["Unit", "Position", "Effect (" + OUT[o].short + " per +1 pt cap)", "95% low", "95% high", "p-value", "Significant under (of 6 starter rules)"],
+      groups.flatMap(g => g.rows.map(d => [g.label, d.pos, fmt(d.coef, 2), fmt(d.lo, 2), fmt(d.hi, 2), d.p < 0.001 ? "<0.001" : d.p.toFixed(3), d.robust + "/6"]))));
     return;
   }
-  const W = width(host), narrow = W < 520, mL = narrow ? 40 : 56, mR = narrow ? 44 : 128, mT = 30, rowH = 34, mB = 46, H = mT + rowH * data.length + mB;
-  const lo = Math.min(0, ...data.map(d => d.lo)), hi = Math.max(0, ...data.map(d => d.hi)), pad = (hi - lo) * 0.05;
+  const W = width(host), narrow = W < 520, mL = narrow ? 40 : 104, mR = narrow ? 48 : 128, mT = 36, rowH = narrow ? 44 : 34, gH = 28, mB = 46;
+  const H = mT + groups.length * gH + all.length * rowH + mB;
+  const lo = Math.min(0, ...all.map(d => d.lo)), hi = Math.max(0, ...all.map(d => d.hi)), pad = (hi - lo) * 0.05;
   const x = linear(lo - pad, hi + pad, mL, W - mR), tk = niceTicks(lo - pad, hi + pad, narrow ? 4 : 6);
-  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Estimated effect of starter cap share by position on ${OUT[o].lc}. Table view has the numbers.` });
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Estimated effect of starter cap share by position on ${OUT[o].lc}, grouped into offense and defense. Table view has the numbers.` });
   tk.ticks.forEach(t => {
     svg.appendChild(s("line", { class: Math.abs(t) < 1e-9 ? "axis" : "grid", x1: x(t), x2: x(t), y1: mT - 8, y2: H - mB + 6 }));
     svg.appendChild(s("text", { class: "t-muted", x: x(t), y: H - mB + 22, "text-anchor": "middle", text: tk.dec ? t.toFixed(tk.dec) : String(t) }));
   });
   svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 4, "text-anchor": "middle", text: OUT[o].short + " per +1 point of cap share" }));
-  if (!narrow) {
-    svg.appendChild(s("text", { class: "t-muted", x: W - mR + 22, y: mT - 14, text: "Significant under" }));
-    svg.appendChild(s("text", { class: "t-muted", x: W - mR + 22, y: mT - 2, text: "6 starter rules" }));
+  if (narrow) {
+    svg.appendChild(s("text", { class: "t-muted t-small", x: W - mR + 6, y: mT - 18, text: "Sig. in" }));
+    svg.appendChild(s("text", { class: "t-muted t-small", x: W - mR + 6, y: mT - 6, text: "k of 6" }));
+  } else {
+    svg.appendChild(s("text", { class: "t-muted", x: W - mR + 22, y: mT - 18, text: "Significant under" }));
+    svg.appendChild(s("text", { class: "t-muted", x: W - mR + 22, y: mT - 6, text: "6 starter rules" }));
   }
-  data.forEach((d, i) => {
-    const cy = mT + rowH * i + rowH / 2, sig = d.p < 0.05, selected = d.pos === state.exp.pos;
-    if (selected) svg.appendChild(s("rect", { class: "band", x: 0, y: cy - rowH / 2 + 1, width: W, height: rowH - 2, rx: 6 }));
-    svg.appendChild(s("text", { class: selected ? "t-strong" : "t-ink", x: 4, y: cy + 4, text: d.pos }));
-    svg.appendChild(s("line", { class: "whisker", x1: x(d.lo), x2: x(d.hi), y1: cy, y2: cy }));
-    svg.appendChild(s("circle", { class: "ring", cx: x(d.coef), cy, r: 7.5 }));
-    svg.appendChild(s("circle", { class: sig ? "dot-sig" : "dot-ns", cx: x(d.coef), cy, r: sig ? 5 : 4 }));
-    svg.appendChild(s("text", { class: "t-ink", x: narrow ? W - mR + 8 : W - mR + 22, y: cy + 4, text: d.robust + "/6", style: "font-variant-numeric:tabular-nums" }));
-    const hit = s("rect", { class: "hit", x: 0, y: cy - rowH / 2, width: W, height: rowH, tabindex: 0, role: "button", "aria-label": `${POSNAME[d.pos]}: effect ${fmt(d.coef, 2)}, ${fmtP(d.p)}. Press to explore.` });
-    const tipRows = () => ["95% interval " + fmt(d.lo, 2) + " to " + fmt(d.hi, 2), fmtP(d.p) + (sig ? "" : " (not significant)"), "Significant under " + d.robust + " of 6 starter definitions"];
-    hit.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()));
-    hit.addEventListener("focus", () => { const b = hit.getBoundingClientRect(); showTip(b.left + 80, b.top, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()); });
-    hit.addEventListener("blur", hideTip); hit.addEventListener("pointerleave", hideTip);
-    const choose = () => { state.exp.pos = d.pos; state.exp.outcome = o; $("#exp-pos").value = d.pos; $("#exp-outcome").value = o; renderExplorer(); renderFindings(); $("#s-exp").scrollIntoView({ behavior: "smooth", block: "start" }); };
-    hit.addEventListener("click", choose); hit.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } });
-    svg.appendChild(hit);
+  let cursor = mT;
+  groups.forEach(g => {
+    svg.appendChild(s("text", { class: "t-group", x: 4, y: cursor + 19, text: g.label }));
+    svg.appendChild(s("line", { class: "grid", x1: 0, x2: W, y1: cursor + gH - 3, y2: cursor + gH - 3 }));
+    cursor += gH;
+    g.rows.forEach(d => {
+      const cy = cursor + rowH / 2, sig = d.p < 0.05, selected = d.pos === state.exp.pos;
+      cursor += rowH;
+      if (selected) svg.appendChild(s("rect", { class: "band", x: 0, y: cy - rowH / 2 + 1, width: W, height: rowH - 2, rx: 6 }));
+      svg.appendChild(s("text", { class: selected ? "t-strong" : "t-ink", x: 4, y: cy + 4, text: d.pos === "TE" && narrow ? "TE*" : d.pos }));
+      if (d.pos === "TE" && !narrow) svg.appendChild(s("text", { class: "t-flag", x: 28, y: cy + 4, text: "fails placebo" }));
+      svg.appendChild(s("line", { class: "whisker", x1: x(d.lo), x2: x(d.hi), y1: cy, y2: cy }));
+      svg.appendChild(s("circle", { class: "ring", cx: x(d.coef), cy, r: 7.5 }));
+      svg.appendChild(s("circle", { class: sig ? "dot-sig" : "dot-ns", cx: x(d.coef), cy, r: sig ? 5 : 4 }));
+      if (d.pos === "QB" || selected) {   // direct label for the story row and the open row
+        const right = x(d.hi) + 8 + 34 < W - mR - 4;
+        svg.appendChild(s("text", { class: "t-strong", x: right ? x(d.hi) + 8 : x(d.lo) - 8, y: cy + 4, "text-anchor": right ? "start" : "end", text: fmt(d.coef, 2) }));
+      }
+      svg.appendChild(s("text", { class: "t-ink", x: narrow ? W - mR + 8 : W - mR + 22, y: cy + 4, text: d.robust + "/6", style: "font-variant-numeric:tabular-nums" }));
+      const hit = s("rect", { class: "hit", x: 0, y: cy - rowH / 2, width: W, height: rowH, tabindex: 0, role: "button", "aria-label": `${POSNAME[d.pos]}: effect ${fmt(d.coef, 2)}, ${fmtP(d.p)}${d.pos === "TE" ? ", fails the placebo check" : ""}. Press to explore.` });
+      const tipRows = () => ["95% interval " + fmt(d.lo, 2) + " to " + fmt(d.hi, 2), fmtP(d.p) + (sig ? "" : " (not significant)"), "Significant under " + d.robust + " of 6 starter definitions"];
+      hit.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()));
+      hit.addEventListener("focus", () => { const b = hit.getBoundingClientRect(); showTip(b.left + 80, b.top, POSNAME[d.pos] + ": " + fmt(d.coef, 2) + " " + OUT[o].short, tipRows()); });
+      hit.addEventListener("blur", hideTip); hit.addEventListener("pointerleave", hideTip);
+      const choose = () => {
+        state.exp.pos = d.pos; state.exp.outcome = o; $("#exp-pos").value = d.pos; $("#exp-outcome").value = o;
+        renderExplorer(); renderFindings(); hideTip();
+        $("#s-exp").scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+        $("#h-exp").focus({ preventScroll: true });
+        say(`Opened ${POSNAME[d.pos]} in the position explorer.`);
+      };
+      hit.addEventListener("click", choose); hit.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } });
+      svg.appendChild(hit);
+    });
   });
   host.appendChild(svg);
 }
 
 /* ---------- 2. position explorer ---------- */
+let applyHighlight = () => {};
 function renderExplorer() {
-  const host = $("#exp-chart"), stat = $("#exp-stat"); host.replaceChildren(); stat.replaceChildren();
-  const pi = POS.indexOf(state.exp.pos), o = state.exp.outcome, rows = visible();
-  $("#exp-sub").textContent = `${POSNAME[state.exp.pos]} starters' share of cap against ${OUT[o].lc}, ${state.exp.from}–${state.exp.to} (${rows.length} team-seasons).`;
+  const host = $("#exp-chart"), stat = $("#exp-stat"), pinbar = $("#pinbar"); host.replaceChildren(); stat.replaceChildren();
+  const pi = POS.indexOf(state.exp.pos), o = state.exp.outcome, rows = visible(), pos = state.exp.pos;
+  const fullRange = state.exp.from === SEASONS.from && state.exp.to === SEASONS.to;
+  $("#exp-sub").textContent = `${POSNAME[pos]} starters' share of cap against ${OUT[o].lc}, ${state.exp.from}–${state.exp.to} (${rows.length} team-seasons).`;
+  $("#exp-help").textContent = state.view.exp === "table" ? "" : `Hover, tap, or use the left and right arrow keys to move between team-seasons. Click, tap again, or press Enter to pin a team; Escape clears it. Dollar figures under the axis are at the average tracked cap ($${Math.round(avgCap)}M).`;
   const xf = r => r.st[pi], yf = r => r[o];
   const f = rows.length > 2 ? fe(rows, xf, yf) : { slope: 0, r: 0 };
-  const mine = DATA.findings[o].find(d => d.pos === state.exp.pos);
-  stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Estimate with other positions held fixed" }),
+  const mine = DATA.findings[o].find(d => d.pos === pos);
+  stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Model estimate" }),
+    h("div", { class: "cap", text: "All seasons, other positions held fixed" }),
     h("div", { class: "big", text: fmt(mine.coef, 2) + " " + OUT[o].short }),
-    h("div", { class: "small", text: `per +1 pt of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions. Uses all seasons.` })]));
-  stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Simple trend in this view" }),
+    h("div", { class: "small", text: `per +1 pt of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions.${fullRange ? "" : " This does not change with the season range."}` })]));
+  const sample = s("svg", { width: 22, height: 10, "aria-hidden": "true" }, [s("line", { x1: 2, y1: 5, x2: 20, y2: 5, class: "trend" })]);
+  stat.appendChild(h("div", { class: "card" }, [h("h3", {}, [document.createTextNode("This chart’s trend"), sample]),
+    h("div", { class: "cap", text: `${state.exp.from}–${state.exp.to}, ${pos} alone` }),
     h("div", { class: "big", text: fmt(f.slope, 2) + " " + OUT[o].short }),
-    h("div", { class: "small", text: `per +1 pt of cap share, correlation ${f.r.toFixed(2)}, season averages removed. Ignores other positions, so it can differ from the estimate above.` })]));
+    h("div", { class: "small", text: `per +1 pt of cap share, correlation ${f.r.toFixed(2)}, season averages removed. It ignores other positions, so it can differ from the model estimate.` })]));
   if (state.view.exp === "table") {
+    pinbar.hidden = true; applyHighlight = () => {};
     const sorted = rows.slice().sort((a, b) => xf(b) - xf(a));
-    host.appendChild(table(["Team", "Season", state.exp.pos + " starter share %", state.exp.pos + " starter cap $M", OUT[o].label, "Win %"],
+    host.appendChild(table(["Team", "Season", pos + " starter share %", pos + " starter cap $M", OUT[o].label, "Win %"],
       sorted.map(r => [r.t, r.s, r.st[pi].toFixed(1), r.usd[pi].toFixed(1), fmt(r[o], 1), r.w.toFixed(3)])));
     return;
   }
-  const W = width(host), H = Math.round(Math.min(430, Math.max(300, W * 0.62))), mL = 46, mR = 12, mT = 10, mB = 46;
+  const W = width(host), H = Math.round(Math.min(440, Math.max(310, W * 0.62))), mL = 46, mR = 12, mT = 10, mB = 62;
   const xs = rows.map(xf), ys = rows.map(yf);
   const xmax = Math.max(...xs) * 1.05, ylo = Math.min(...ys), yhi = Math.max(...ys), yp = (yhi - ylo) * 0.06;
   const x = linear(0, xmax, mL, W - mR), y = linear(ylo - yp, yhi + yp, H - mB, mT);
   const xt = niceTicks(0, xmax, W < 520 ? 4 : 6), yt = niceTicks(ylo - yp, yhi + yp, 6);
-  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Scatter of ${state.exp.pos} starter cap share against ${OUT[o].lc}. Table view has the data.` });
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Scatter of ${pos} starter cap share against ${OUT[o].lc}. Table view has the data.` });
   yt.ticks.forEach(t => {
     svg.appendChild(s("line", { class: Math.abs(t) < 1e-9 ? "axis" : "grid", x1: mL, x2: W - mR, y1: y(t), y2: y(t) }));
     svg.appendChild(s("text", { class: "t-muted", x: mL - 8, y: y(t) + 4, "text-anchor": "end", text: yt.dec ? t.toFixed(yt.dec) : String(t) }));
   });
-  xt.ticks.forEach(t => svg.appendChild(s("text", { class: "t-muted", x: x(t), y: H - mB + 18, "text-anchor": "middle", text: xt.dec ? t.toFixed(xt.dec) + "%" : t + "%" })));
+  xt.ticks.forEach(t => {
+    svg.appendChild(s("text", { class: "t-muted", x: x(t), y: H - mB + 18, "text-anchor": "middle", text: xt.dec ? t.toFixed(xt.dec) + "%" : t + "%" }));
+    svg.appendChild(s("text", { class: "t-muted t-small", x: x(t), y: H - mB + 33, "text-anchor": "middle", text: "≈$" + Math.round(t / 100 * avgCap) + "M" }));
+  });
   svg.appendChild(s("line", { class: "axis", x1: mL, x2: W - mR, y1: H - mB, y2: H - mB }));
-  svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 6, "text-anchor": "middle", text: `${state.exp.pos} starters' share of tracked cap` }));
+  svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 6, "text-anchor": "middle", text: `${pos} starters' share of tracked cap` }));
   svg.appendChild(s("text", { x: 0, y: mT + 2, text: OUT[o].short, class: "t-muted" }));
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
   if (rows.length > 2) { const x0 = 0, x1 = xmax; svg.appendChild(s("line", { class: "trend", x1: x(x0), x2: x(x1), y1: y(my + f.slope * (x0 - mx)), y2: y(my + f.slope * (x1 - mx)) })); }
   const dots = rows.map(r => { const c = s("circle", { class: "pt", cx: x(xf(r)), cy: y(yf(r)), r: 4.5 }); svg.appendChild(c); return { r, c, px: x(xf(r)), py: y(yf(r)) }; });
+  const sorted = dots.slice().sort((a, b) => a.px - b.px || a.py - b.py);
+  const ring = s("circle", { class: "focusring", r: 9, cx: 0, cy: 0, style: "display:none" }); svg.appendChild(ring);
   const apply = () => {
     const t = state.pinned || state.hover;
     dots.forEach(d => { d.c.setAttribute("class", "pt" + (t ? (d.r.t === t ? " hl" : " dim") : "")); });
     dots.filter(d => t && d.r.t === t).forEach(d => svg.appendChild(d.c));   // raise highlighted marks
+    svg.appendChild(ring);
+    pinbar.hidden = !state.pinned;
+    if (state.pinned) {
+      const n = dots.filter(d => d.r.t === state.pinned).length;
+      pinbar.replaceChildren(h("span", {}, [h("strong", { text: "Pinned: " + DATA.teams[state.pinned] }), document.createTextNode(` (${n} season${n === 1 ? "" : "s"} in view)`)]), clearBtn);
+    }
   };
-  const overlay = s("rect", { x: mL, y: mT, width: W - mL - mR, height: H - mT - mB, fill: "transparent", style: "cursor:crosshair" });
-  overlay.addEventListener("pointermove", e => {
+  const clearBtn = h("button", { class: "link", type: "button", text: "Clear" });
+  clearBtn.addEventListener("click", () => { state.pinned = null; state.hover = null; applyHighlight(); say("Pin cleared."); });
+  applyHighlight = apply;
+  const desc = r => [fmt(r[o], 1) + " " + OUT[o].short, `${DATA.teams[r.t]}, ${r.s}`, `${pos} starters: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M)`, `Win % ${r.w.toFixed(3)}`];
+  const nearestAt = e => {
     const b = svg.getBoundingClientRect(), k = W / b.width, px = (e.clientX - b.left) * k, py = (e.clientY - b.top) * k;
     let best = null, bd = 1e9;
     for (const d of dots) { const dd = (d.px - px) ** 2 + (d.py - py) ** 2; if (dd < bd) { bd = dd; best = d; } }
-    if (best && Math.sqrt(bd) <= 36 * k) {
-      state.hover = best.r.t; apply(); const r = best.r;
-      showTip(e.clientX, e.clientY, fmt(r[o], 1) + " " + OUT[o].short, [`${DATA.teams[r.t]}, ${r.s}`, `${state.exp.pos} starters: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M)`, `Win % ${r.w.toFixed(3)}`]);
-    } else { state.hover = null; apply(); hideTip(); }
+    return best && Math.sqrt(bd) <= 36 * k ? best : null;
+  };
+  const overlay = s("rect", { class: "kbd", x: mL, y: mT, width: W - mL - mR, height: H - mT - mB, tabindex: 0, role: "group", style: "cursor:crosshair",
+    "aria-label": `${pos} scatter plot with ${rows.length} team-seasons. Use the left and right arrow keys to move between points, Enter to pin a team, Escape to clear.` });
+  overlay.addEventListener("pointermove", e => {
+    if (e.pointerType === "touch") return;
+    const best = nearestAt(e);
+    if (best) { state.hover = best.r.t; apply(); const [v, ...rest] = desc(best.r); showTip(e.clientX, e.clientY, v, rest); }
+    else { state.hover = null; apply(); hideTip(); }
   });
   overlay.addEventListener("pointerleave", () => { state.hover = null; apply(); hideTip(); });
-  overlay.addEventListener("click", () => { state.pinned = state.hover && state.hover !== state.pinned ? state.hover : null; apply(); });
+  overlay.addEventListener("click", e => {   // select the nearest point under the pointer itself, so a tap never relies on a stale hover
+    const best = nearestAt(e);
+    if (best) { state.pinned = state.pinned === best.r.t ? null : best.r.t; state.hover = best.r.t; const [v, ...rest] = desc(best.r); showTip(e.clientX, e.clientY, v, rest); say(`${DATA.teams[best.r.t]} ${best.r.s}. ${state.pinned ? "Pinned." : "Pin cleared."}`); }
+    else { state.pinned = null; state.hover = null; hideTip(); }
+    apply();
+  });
+  let cur = -1;
+  const focusAt = i => {
+    cur = Math.max(0, Math.min(sorted.length - 1, i)); const d = sorted[cur];
+    ring.setAttribute("cx", d.px); ring.setAttribute("cy", d.py); ring.style.display = ""; state.hover = d.r.t; apply();
+    const bb = d.c.getBoundingClientRect(), [v, ...rest] = desc(d.r); showTip(bb.left + bb.width / 2, bb.top, v, rest); say(desc(d.r).join(". ") + ".");
+  };
+  overlay.addEventListener("focus", () => { if (sorted.length) focusAt(cur < 0 ? Math.floor(sorted.length / 2) : cur); });
+  overlay.addEventListener("blur", () => { ring.style.display = "none"; state.hover = null; apply(); hideTip(); });
+  overlay.addEventListener("keydown", e => {
+    const step = e.shiftKey ? 10 : 1;
+    const mid = Math.floor(sorted.length / 2);
+    if (e.key === "ArrowRight") { e.preventDefault(); focusAt(cur < 0 ? mid : cur + step); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); focusAt(cur < 0 ? mid : cur - step); }
+    else if (e.key === "Home") { e.preventDefault(); focusAt(0); }
+    else if (e.key === "End") { e.preventDefault(); focusAt(sorted.length - 1); }
+    else if ((e.key === "Enter" || e.key === " ") && cur >= 0) { e.preventDefault(); const t = sorted[cur].r.t; state.pinned = state.pinned === t ? null : t; apply(); say(state.pinned ? `Pinned ${DATA.teams[t]}.` : "Pin cleared."); }
+    else if (e.key === "Escape") { state.pinned = null; apply(); say("Pin cleared."); }
+  });
   svg.appendChild(overlay); host.appendChild(svg); apply();
 }
 
 /* ---------- 3. team explorer ---------- */
+function teamInsight(rows) {
+  if (!rows.length) return "";
+  const best = rows.reduce((a, r) => r.pd > a.pd ? r : a), worst = rows.reduce((a, r) => r.pd < a.pd ? r : a);
+  let tilt = null;
+  rows.forEach(r => POS.forEach((p, i) => { const z = Math.abs((r.st[i] - lgMean(r.s, i)) / sd[i]); if (!tilt || z > tilt.z) tilt = { z, p, r, i }; }));
+  const first = rows.length === 1 ? `${rows[0].s}: ${fmt(rows[0].pd, 1)} pts/game.` : `Best season ${best.s} (${fmt(best.pd, 1)} pts/game), worst ${worst.s} (${fmt(worst.pd, 1)}).`;
+  return `${first} Biggest spending tilt: ${POSNAME[tilt.p]} in ${tilt.r.s}, ${tilt.r.st[tilt.i].toFixed(1)}% of cap against a league average of ${lgMean(tilt.r.s, tilt.i).toFixed(1)}%.`;
+}
 function renderTeam() {
-  const host = $("#team-chart"); host.replaceChildren();
+  const host = $("#team-chart"), readout = $("#team-readout"); host.replaceChildren();
   const tm = state.tm.team, rows = ROWS.filter(r => r.t === tm && r.s >= state.tm.from && r.s <= state.tm.to).sort((a, b) => a.s - b.s);
   $("#team-sub").textContent = `${DATA.teams[tm]}: results by season, and where its starter money sat relative to the league average that year. The bars always show point differential.`;
-  $("#team-key").hidden = state.view.team === "table";
+  $("#team-key").hidden = state.view.team === "table"; readout.hidden = state.view.team === "table";
   if (state.view.team === "table") {
     host.appendChild(table(["Season", "Pt diff/g", "Win %", ...POS.map(p => p + " %")], rows.map(r => [r.s, fmt(r.pd, 1), r.w.toFixed(3), ...r.st.map(v => v.toFixed(1))])));
     return;
   }
-  const n = rows.length, avail = width(host), narrow = avail < 520, mL = narrow ? 36 : 50, mR = 8, band = Math.max(24, (avail - mL - mR) / n), W = Math.max(avail, mL + mR + band * n);
+  const insight = teamInsight(rows), setReadout = t => { readout.textContent = t || insight; };
+  setReadout();
+  const n = rows.length, avail = width(host), narrow = avail < 520, mL = narrow ? 34 : 50, mR = 8, band = Math.max(20, (avail - mL - mR) / n), W = Math.max(avail, mL + mR + band * n);
   const topH = 150, gap = 40, cellH = 22, hmH = cellH * POS.length, mT = 26, mB = 28, H = mT + topH + gap + hmH + mB;
-  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, role: "img", "aria-label": `${DATA.teams[tm]} point differential by season and position spending versus league average. Table view has the numbers.` });
-  const y = linear(-16, 16, mT + topH, mT), bx = i => mL + band * i;
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, class: "kbd-svg", tabindex: 0, role: "group",
+    "aria-label": `${DATA.teams[tm]}: point differential by season and position spending versus league average. Use the arrow keys to move between seasons and positions; the readout below describes the selected cell. Table view has all the numbers.` });
+  const y = linear(-16, 16, mT + topH, mT), bx = i => mL + band * i, y0 = mT + topH + gap;
   [-15, -10, -5, 0, 5, 10, 15].forEach(t => {
     svg.appendChild(s("line", { class: t === 0 ? "axis" : "grid", x1: mL, x2: W - mR, y1: y(t), y2: y(t) }));
     if (t % 10 === 0 || t === 0) svg.appendChild(s("text", { class: "t-muted", x: mL - 6, y: y(t) + 4, "text-anchor": "end", text: String(t) }));
   });
   const cw = Math.min(24, band - 6);
+  const barText = r => `${tm} ${r.s}: ${fmt(r.pd, 1)} pts/game, win % ${r.w.toFixed(3)}. Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays.`;
+  const cellText = (r, pi) => { const lg = lgMean(r.s, pi), diff = r.st[pi] - lg; return `${tm} ${r.s}, ${POSNAME[POS[pi]]}: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M). League average ${lg.toFixed(1)}% (${fmt(diff, 1)} pts).`; };
   rows.forEach((r, i) => {
-    const cx = bx(i) + band / 2, top = y(r.pd);
-    const g = s("g", { class: "col" });
+    const cx = bx(i) + band / 2, top = y(r.pd), g = s("g", { class: "col" });
     g.appendChild(s("path", { class: r.pd >= 0 ? "col-pos" : "col-neg", d: barPath(cx - cw / 2, cw, y(0), top, 4) }));
-    g.appendChild(s("rect", { x: bx(i), y: mT, width: band, height: topH, fill: "transparent", style: "cursor:default" }));
-    g.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, fmt(r.pd, 1) + " pts/game", [`${tm} ${r.s}`, `Win % ${r.w.toFixed(3)}`, `Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays`]));
+    g.appendChild(s("rect", { x: bx(i), y: mT, width: band, height: topH, fill: "transparent" }));
+    g.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, fmt(r.pd, 1) + " pts/game", [`${tm} ${r.s}`, `Win % ${r.w.toFixed(3)}`, `Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays`]); });
     g.addEventListener("pointerleave", hideTip);
+    g.addEventListener("click", () => { setReadout(barText(r)); sel = { i, row: -1 }; place(); });
     svg.appendChild(g);
-    svg.appendChild(s("text", { class: "t-muted", x: cx, y: mT + topH + gap + hmH + 18, "text-anchor": "middle", text: narrow ? "'" + String(r.s).slice(2) : String(r.s) }));
+    svg.appendChild(s("text", { class: "t-muted", x: cx, y: y0 + hmH + 18, "text-anchor": "middle", text: narrow ? "'" + String(r.s).slice(2) : String(r.s) }));
   });
   svg.appendChild(s("text", { class: "t-strong", x: mL, y: 14, text: "Point differential per game" }));
-  const y0 = mT + topH + gap;
-  svg.appendChild(s("text", { class: "t-strong", x: mL, y: y0 - 12, text: "Starters' share of cap vs. league average that season" }));
+  svg.appendChild(s("text", { class: "t-strong", x: mL, y: y0 - 12, text: narrow ? "Cap share vs. league average" : "Starters' share of cap vs. league average that season" }));
   POS.forEach((p, pi) => {
     svg.appendChild(s("text", { class: "t-ink", x: mL - 6, y: y0 + cellH * pi + cellH / 2 + 4, "text-anchor": "end", text: p }));
     rows.forEach((r, i) => {
       const lg = lgMean(r.s, pi), diff = r.st[pi] - lg, z = Math.max(-2, Math.min(2, diff / sd[pi]));
       const c = s("rect", { class: "cell " + (Math.abs(z) < 0.05 ? "cell-base" : z > 0 ? "cell-pos" : "cell-neg"), x: bx(i) + 1, y: y0 + cellH * pi + 1, width: band - 2, height: cellH - 2, rx: 3,
         "fill-opacity": Math.abs(z) < 0.05 ? 1 : (0.12 + 0.88 * Math.abs(z) / 2).toFixed(2) });
-      c.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, `${p}: ${r.st[pi].toFixed(1)}% of cap`, [`${tm} ${r.s}, $${r.usd[pi].toFixed(1)}M`, `League average ${lg.toFixed(1)}% (${fmt(diff, 1)} pts)`]));
+      c.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, `${p}: ${r.st[pi].toFixed(1)}% of cap`, [`${tm} ${r.s}, $${r.usd[pi].toFixed(1)}M`, `League average ${lg.toFixed(1)}% (${fmt(diff, 1)} pts)`]); });
       c.addEventListener("pointerleave", hideTip);
+      c.addEventListener("click", () => { setReadout(cellText(r, pi)); sel = { i, row: pi }; place(); });
       svg.appendChild(c);
     });
+  });
+  // keyboard cursor: left/right = season, up/down = bar row (-1) then positions
+  const kring = s("rect", { class: "focusring", rx: 4, x: 0, y: 0, width: 10, height: 10, style: "display:none" }); svg.appendChild(kring);
+  let sel = null;
+  const place = () => {
+    if (!sel) { kring.style.display = "none"; return; }
+    kring.style.display = "";
+    const r = rows[sel.i];
+    if (sel.row === -1) { kring.setAttribute("x", bx(sel.i) + 1); kring.setAttribute("y", mT); kring.setAttribute("width", band - 2); kring.setAttribute("height", topH); }
+    else { kring.setAttribute("x", bx(sel.i) + 1); kring.setAttribute("y", y0 + cellH * sel.row + 1); kring.setAttribute("width", band - 2); kring.setAttribute("height", cellH - 2); }
+    setReadout(sel.row === -1 ? barText(r) : cellText(r, sel.row));
+  };
+  svg.addEventListener("focus", () => { if (!sel && rows.length) sel = { i: rows.length - 1, row: -1 }; place(); });
+  svg.addEventListener("blur", () => { sel = null; place(); setReadout(); });
+  svg.addEventListener("keydown", e => {
+    if (!rows.length) return;
+    const k = e.key;
+    if (!sel) { if (!k.startsWith("Arrow") && k !== "Home" && k !== "End") return; sel = { i: rows.length - 1, row: -1 }; place(); e.preventDefault(); return; }
+    if (k === "ArrowRight") sel.i = Math.min(rows.length - 1, sel.i + 1);
+    else if (k === "ArrowLeft") sel.i = Math.max(0, sel.i - 1);
+    else if (k === "ArrowDown") sel.row = Math.min(POS.length - 1, sel.row + 1);
+    else if (k === "ArrowUp") sel.row = Math.max(-1, sel.row - 1);
+    else if (k === "Home") sel.i = 0; else if (k === "End") sel.i = rows.length - 1;
+    else if (k === "Escape") { sel = null; place(); setReadout(); return; }
+    else return;
+    e.preventDefault(); place();
   });
   host.appendChild(svg);
 }
@@ -482,27 +652,31 @@ function seasonRange(st, fromSel, toSel, render) {   // keeps from <= to when ei
   $(fromSel).addEventListener("change", e => { st.from = +e.target.value; if (st.from > st.to) { st.to = st.from; $(toSel).value = st.to; } render(); });
   $(toSel).addEventListener("change", e => { st.to = +e.target.value; if (st.to < st.from) { st.from = st.to; $(fromSel).value = st.from; } render(); });
 }
+const seg = { "s-find": ["find", renderFindings], "s-exp": ["exp", renderExplorer], "s-team": ["team", renderTeam] };
+function setView(id, view) {
+  state.view[seg[id][0]] = view;
+  document.querySelectorAll("#" + id + " .seg button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.view === view)));
+}
 $("#find-outcome").addEventListener("change", e => { state.find.outcome = e.target.value; renderFindings(); });
 $("#exp-outcome").addEventListener("change", e => { state.exp.outcome = e.target.value; renderExplorer(); });
 $("#exp-pos").addEventListener("change", e => { state.exp.pos = e.target.value; renderExplorer(); renderFindings(); });   // chart 1 shades the open position
 seasonRange(state.exp, "#exp-from", "#exp-to", renderExplorer);
 $("#team-team").addEventListener("change", e => { state.tm.team = e.target.value; renderTeam(); });
 seasonRange(state.tm, "#team-from", "#team-to", renderTeam);
+$("#find-reset").addEventListener("click", () => {
+  Object.assign(state.find, DEFAULTS.find); $("#find-outcome").value = state.find.outcome; setView("s-find", "chart"); renderFindings();
+});
 $("#exp-reset").addEventListener("click", () => {
-  Object.assign(state.exp, DEFAULTS.exp); state.pinned = null; state.hover = null;
+  Object.assign(state.exp, DEFAULTS.exp); state.pinned = null; state.hover = null; setView("s-exp", "chart");
   $("#exp-outcome").value = state.exp.outcome; $("#exp-pos").value = state.exp.pos; $("#exp-from").value = state.exp.from; $("#exp-to").value = state.exp.to;
   renderExplorer(); renderFindings();
 });
 $("#team-reset").addEventListener("click", () => {
-  Object.assign(state.tm, DEFAULTS.tm); $("#team-team").value = state.tm.team; $("#team-from").value = state.tm.from; $("#team-to").value = state.tm.to; renderTeam();
+  Object.assign(state.tm, DEFAULTS.tm); setView("s-team", "chart");
+  $("#team-team").value = state.tm.team; $("#team-from").value = state.tm.from; $("#team-to").value = state.tm.to; renderTeam();
 });
-const seg = { "s-find": ["find", renderFindings], "s-exp": ["exp", renderExplorer], "s-team": ["team", renderTeam] };
 for (const id in seg) {
-  document.querySelectorAll("#" + id + " .seg button").forEach(b => b.addEventListener("click", () => {
-    state.view[seg[id][0]] = b.dataset.view;
-    document.querySelectorAll("#" + id + " .seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
-    seg[id][1]();
-  }));
+  document.querySelectorAll("#" + id + " .seg button").forEach(b => b.addEventListener("click", () => { setView(id, b.dataset.view); seg[id][1](); say(`Showing the ${b.dataset.view} view.`); }));
 }
 let lastW = 0;
 new ResizeObserver(() => { const w = $(".wrap").clientWidth; if (Math.abs(w - lastW) > 2) { lastW = w; renderAll(); } }).observe($(".wrap"));
