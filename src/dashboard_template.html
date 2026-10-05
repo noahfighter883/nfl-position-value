@@ -398,7 +398,7 @@ function renderFindings() {
   const o = state.find.outcome, byPos = Object.fromEntries(DATA.findings[o].map(d => [d.pos, d]));
   const groups = UNITS.map(([label, ps]) => ({ label, rows: ps.map(p => byPos[p]).sort((a, b) => b.coef - a.coef) }));
   const all = groups.flatMap(g => g.rows);
-  $("#find-note").textContent = NOTE[o] + " Together the positions explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + ".";
+  $("#find-note").textContent = NOTE[o] + " Together the positions and dead money explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + ".";
   $("#find-key").hidden = state.view.find === "table";
   if (state.view.find === "table") {
     host.appendChild(table(["Unit", "Position", "Effect (" + OUT[o].short + " per +1 point of cap)", "95% low", "95% high", "p-value", "Significant under (of 6 starter rules)"],

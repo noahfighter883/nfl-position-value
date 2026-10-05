@@ -4,7 +4,7 @@ A team-level look at salary cap spending and results across 13 seasons (2013 to 
 
 ## The short version
 
-Spending on the starting quarterback has the clearest payoff in this data, and it works through the passing game. Receivers, offensive linemen, edge rushers and cornerbacks also pay off, on the side of the ball where they play. Tight end looks valuable at first, but a simple check says that result is probably noise. Taken together, how a team splits its cap explains only about a tenth of how it performs. The strongest single marker in the data is not a position at all: teams carrying a lot of dead money and unspent cap do worse, though that is probably as much a result of a bad year as a cause of one.
+Spending on the starting quarterback has the clearest payoff in this data, and it works through the passing game. Receivers, offensive linemen, edge rushers and cornerbacks also pay off, on the side of the ball where they play. Tight end looks valuable at first, but a simple check says that result is probably noise. Taken together, how a team splits its cap among positions explains only about a tenth of how it performs (about 16% once dead money is included). The strongest single marker in the data is not a position at all: teams carrying a lot of dead money and unspent cap do worse, though that is probably as much a result of a bad year as a cause of one.
 
 ## The question
 
