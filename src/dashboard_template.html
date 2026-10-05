@@ -209,6 +209,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70
     <div class="controls" role="group" aria-label="Controls for the position explorer">
       <div class="field"><label for="exp-outcome">Outcome</label><select id="exp-outcome"></select></div>
       <div class="field"><label for="exp-pos">Position</label><select id="exp-pos"></select></div>
+      <div class="field"><label for="exp-team">Highlight team</label><select id="exp-team"></select></div>
       <div class="field"><label for="exp-from">From</label><select id="exp-from"></select></div>
       <div class="field"><label for="exp-to">To</label><select id="exp-to"></select></div>
       <button class="link" id="exp-reset" type="button">Reset</button>
@@ -275,6 +276,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70
       <div><dt>Estimate and 95% interval</dt><dd>The dot is the best estimate. The line is the range of values the data cannot rule out.</dd></div>
       <div><dt>Significant at 5%</dt><dd>The interval excludes zero, so a true effect of zero is unlikely. With ten positions and several outcomes, a few results clear this bar by chance.</dd></div>
       <div><dt>Significant under k of 6 starter rules</dt><dd>&ldquo;Starter&rdquo; was defined six different ways. The number counts how many definitions keep the result significant.</dd></div>
+      <div><dt>Overall finish</dt><dd>Where a team ended the season among the 32 teams: 1 is the champion and 32 is the worst. It is read from the league&rsquo;s first-round draft order (each team&rsquo;s original, pre-trade slot, flipped), so it includes playoff results. Estimates are shown as places gained, so positive is better.</dd></div>
       <div><dt>Placebo check</dt><dd>Spending on offensive positions should not move the defense, and spending on defensive positions should not move the offense. A position that does fails the check, and its result is probably noise.</dd></div>
     </dl>
   </section>
@@ -294,12 +296,14 @@ const OUT = {
   pd:  { label: "Point differential", lc: "point differential", unit: "points per game", short: "pts/game", dec: 1 },
   off: { label: "Offense EPA",        lc: "offense EPA", unit: "EPA per 100 plays", short: "EPA/100", dec: 1 },
   dfn: { label: "Defense EPA",        lc: "defense EPA", unit: "EPA per 100 plays (higher = better defense)", short: "EPA/100", dec: 1 },
+  fin: { label: "Overall finish",     lc: "overall finish", unit: "places gained in the final standings", short: "places gained", card: "places", dec: 1, invert: true },
 };
 const POSNAME = { QB: "Quarterback", RB: "Running back", WR: "Wide receiver", TE: "Tight end", OL: "Offensive line", DL: "Interior DL", EDGE: "Edge rusher", LB: "Linebacker", CB: "Cornerback", S: "Safety" };
 const UNITS = [["Offense", ["QB", "RB", "WR", "TE", "OL"]], ["Defense", ["DL", "EDGE", "LB", "CB", "S"]]];
 const NOTE = {
   pd: "Quarterback is the clearest payoff. Tight end has the largest estimate and is stable across starter definitions, but it fails the offense-versus-defense test (switch to Defense EPA): stability is not evidence against noise.",
   off: "QB, WR and OL help the offense. Defensive positions show nothing here, as they should.",
+  fin: "Overall finish is where the team ended up among the 32 teams, so it includes playoff results. Estimates are places gained in the standings, so positive is better. QB again leads the reliable positions; tight end again has the largest estimate and again fails the placebo check.",
   dfn: "EDGE, CB and interior DL help the defense. Tight end should show nothing here, but it shows a significant effect, so its other results are probably noise.",
 };
 const SEASONS = { from: DATA.seasons[0], to: DATA.seasons[1] };
@@ -323,6 +327,10 @@ function h(tag, attrs, kids) {
 const fmt = (v, d = 1) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
 const fmtP = p => p < 0.001 ? "p < 0.001" : "p = " + p.toFixed(3);
 const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const ord = n => { const t = ["th", "st", "nd", "rd"], v = n % 100; return n + (t[(v - 20) % 10] || t[v] || t[0]); };
+const valText = (r, o) => OUT[o].invert ? `Finished ${ord(r[o])} of 32` : fmt(r[o], 1) + " " + OUT[o].short;
+const cellVal = (r, o) => OUT[o].invert ? r[o] : fmt(r[o], 1);
+function pinTeam(t) { state.pinned = t || null; $("#exp-team").value = state.pinned || ""; }   // one place that keeps the pin and the Team dropdown in step
 const say = text => { $("#sr-live").textContent = ""; setTimeout(() => { $("#sr-live").textContent = text; }, 30); };
 function linear(d0, d1, r0, r1) { const f = v => r0 + (v - d0) / (d1 - d0) * (r1 - r0); f.inv = p => d0 + (p - r0) / (r1 - r0) * (d1 - d0); return f; }
 function niceTicks(lo, hi, n) {
@@ -461,25 +469,26 @@ function renderExplorer() {
   const mine = DATA.findings[o].find(d => d.pos === pos);
   stat.appendChild(h("div", { class: "card" }, [h("h3", { text: "Model estimate" }),
     h("div", { class: "cap", text: "All seasons, other positions held fixed" }),
-    h("div", { class: "big", text: fmt(mine.coef, 2) + " " + OUT[o].short }),
-    h("div", { class: "small", text: `per +1 point of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions.${fullRange ? "" : " This does not change with the season range."}` })]));
+    h("div", { class: "big", text: fmt(mine.coef, 2) + " " + (OUT[o].card || OUT[o].short) }),
+    h("div", { class: "small", text: `${OUT[o].invert ? "places gained " : ""}per +1 point of cap share. 95% interval ${fmt(mine.lo, 2)} to ${fmt(mine.hi, 2)}, ${fmtP(mine.p)}. Significant under ${mine.robust} of 6 starter definitions.${fullRange ? "" : " This does not change with the season range."}` })]));
   const sample = s("svg", { width: 22, height: 10, "aria-hidden": "true" }, [s("line", { x1: 2, y1: 5, x2: 20, y2: 5, class: "trend" })]);
   stat.appendChild(h("div", { class: "card" }, [h("h3", {}, [document.createTextNode("This chart’s trend"), sample]),
     h("div", { class: "cap", text: `${state.exp.from}–${state.exp.to}, ${pos} alone` }),
-    h("div", { class: "big", text: fmt(f.slope, 2) + " " + OUT[o].short }),
-    h("div", { class: "small", text: `per +1 point of cap share, correlation ${f.r.toFixed(2)}, season averages removed. It ignores other positions, so it can differ from the model estimate.` })]));
+    h("div", { class: "big", text: fmt(OUT[o].invert ? -f.slope : f.slope, 2) + " " + (OUT[o].card || OUT[o].short) }),
+    h("div", { class: "small", text: `${OUT[o].invert ? "places gained " : ""}per +1 point of cap share, correlation ${(OUT[o].invert ? -f.r : f.r).toFixed(2)}, season averages removed. It ignores other positions, so it can differ from the model estimate.` })]));
   if (state.view.exp === "table") {
     pinbar.hidden = true; applyHighlight = () => {};
     const sorted = rows.slice().sort((a, b) => xf(b) - xf(a));
-    host.appendChild(table(["Team", "Season", pos + " starter share %", pos + " starter cap $M", OUT[o].label, "Win %"],
-      sorted.map(r => [r.t, r.s, r.st[pi].toFixed(1), r.usd[pi].toFixed(1), fmt(r[o], 1), r.w.toFixed(3)])));
+    host.appendChild(table(["Team", "Season", pos + " starter share %", pos + " starter cap $M", OUT[o].label + (OUT[o].invert ? " (1 = best)" : ""), "Win %"],
+      sorted.map(r => [r.t, r.s, r.st[pi].toFixed(1), r.usd[pi].toFixed(1), cellVal(r, o), r.w.toFixed(3)])));
     return;
   }
   const W = width(host), H = Math.round(Math.min(440, Math.max(310, W * 0.62))), mL = 46, mR = 12, mT = 10, mB = 62;
   const xs = rows.map(xf), ys = rows.map(yf);
-  const xmax = Math.max(...xs) * 1.05, ylo = Math.min(...ys), yhi = Math.max(...ys), yp = (yhi - ylo) * 0.06;
-  const x = linear(0, xmax, mL, W - mR), y = linear(ylo - yp, yhi + yp, H - mB, mT);
-  const xt = niceTicks(0, xmax, W < 520 ? 4 : 6), yt = niceTicks(ylo - yp, yhi + yp, 6);
+  const inv = !!OUT[o].invert;   // overall finish: 1 = best, drawn with 1 at the top so "up" always means better
+  const xmax = Math.max(...xs) * 1.05, ylo = inv ? 1 : Math.min(...ys), yhi = inv ? 32 : Math.max(...ys), yp = inv ? 0.8 : (yhi - ylo) * 0.06;
+  const x = linear(0, xmax, mL, W - mR), y = inv ? linear(ylo - yp, yhi + yp, mT, H - mB) : linear(ylo - yp, yhi + yp, H - mB, mT);
+  const xt = niceTicks(0, xmax, W < 520 ? 4 : 6), yt = inv ? { ticks: [1, 5, 10, 15, 20, 25, 30], dec: 0 } : niceTicks(ylo - yp, yhi + yp, 6);
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Scatter of ${pos} starter cap share against ${OUT[o].lc}. Table view has the data.` });
   yt.ticks.forEach(t => {
     svg.appendChild(s("line", { class: Math.abs(t) < 1e-9 ? "axis" : "grid", x1: mL, x2: W - mR, y1: y(t), y2: y(t) }));
@@ -491,7 +500,7 @@ function renderExplorer() {
   });
   svg.appendChild(s("line", { class: "axis", x1: mL, x2: W - mR, y1: H - mB, y2: H - mB }));
   svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 6, "text-anchor": "middle", text: `${pos} starters' share of tracked cap` }));
-  svg.appendChild(s("text", { x: 0, y: mT + 2, text: OUT[o].short, class: "t-muted" }));
+  svg.appendChild(s("text", { x: 0, y: mT + 2, text: inv ? "finish (1 = best)" : OUT[o].short, class: "t-muted" }));
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
   if (rows.length > 2) { const x0 = 0, x1 = xmax; svg.appendChild(s("line", { class: "trend", x1: x(x0), x2: x(x1), y1: y(my + f.slope * (x0 - mx)), y2: y(my + f.slope * (x1 - mx)) })); }
   const dots = rows.map(r => { const c = s("circle", { class: "pt", cx: x(xf(r)), cy: y(yf(r)), r: 4.5 }); svg.appendChild(c); return { r, c, px: x(xf(r)), py: y(yf(r)) }; });
@@ -509,9 +518,9 @@ function renderExplorer() {
     }
   };
   const clearBtn = h("button", { class: "link", type: "button", text: "Clear" });
-  clearBtn.addEventListener("click", () => { state.pinned = null; state.hover = null; applyHighlight(); say("Pin cleared."); });
+  clearBtn.addEventListener("click", () => { pinTeam(null); state.hover = null; applyHighlight(); say("Pin cleared."); });
   applyHighlight = apply;
-  const desc = r => [fmt(r[o], 1) + " " + OUT[o].short, `${DATA.teams[r.t]}, ${r.s}`, `${pos} starters: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M)`, `Win % ${r.w.toFixed(3)}`];
+  const desc = r => [valText(r, o), `${DATA.teams[r.t]}, ${r.s}${inv ? ` (draft slot ${33 - r.fin})` : ""}`, `${pos} starters: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M)`, `Win % ${r.w.toFixed(3)}`];
   const nearestAt = e => {
     const b = svg.getBoundingClientRect(), k = W / b.width, px = (e.clientX - b.left) * k, py = (e.clientY - b.top) * k;
     let best = null, bd = 1e9;
@@ -529,8 +538,8 @@ function renderExplorer() {
   overlay.addEventListener("pointerleave", () => { state.hover = null; apply(); hideTip(); });
   overlay.addEventListener("click", e => {   // select the nearest point under the pointer itself, so a tap never relies on a stale hover
     const best = nearestAt(e);
-    if (best) { state.pinned = state.pinned === best.r.t ? null : best.r.t; state.hover = best.r.t; const [v, ...rest] = desc(best.r); showTip(e.clientX, e.clientY, v, rest); say(`${DATA.teams[best.r.t]} ${best.r.s}. ${state.pinned ? "Pinned." : "Pin cleared."}`); }
-    else { state.pinned = null; state.hover = null; hideTip(); }
+    if (best) { pinTeam(state.pinned === best.r.t ? null : best.r.t); state.hover = best.r.t; const [v, ...rest] = desc(best.r); showTip(e.clientX, e.clientY, v, rest); say(`${DATA.teams[best.r.t]} ${best.r.s}. ${state.pinned ? "Pinned." : "Pin cleared."}`); }
+    else { pinTeam(null); state.hover = null; hideTip(); }
     apply();
   });
   let cur = -1;
@@ -548,8 +557,8 @@ function renderExplorer() {
     else if (e.key === "ArrowLeft") { e.preventDefault(); focusAt(cur < 0 ? mid : cur - step); }
     else if (e.key === "Home") { e.preventDefault(); focusAt(0); }
     else if (e.key === "End") { e.preventDefault(); focusAt(sorted.length - 1); }
-    else if ((e.key === "Enter" || e.key === " ") && cur >= 0) { e.preventDefault(); const t = sorted[cur].r.t; state.pinned = state.pinned === t ? null : t; apply(); say(state.pinned ? `Pinned ${DATA.teams[t]}.` : "Pin cleared."); }
-    else if (e.key === "Escape") { state.pinned = null; apply(); say("Pin cleared."); }
+    else if ((e.key === "Enter" || e.key === " ") && cur >= 0) { e.preventDefault(); const t = sorted[cur].r.t; pinTeam(state.pinned === t ? null : t); apply(); say(state.pinned ? `Pinned ${DATA.teams[t]}.` : "Pin cleared."); }
+    else if (e.key === "Escape") { pinTeam(null); apply(); say("Pin cleared."); }
   });
   svg.appendChild(overlay); host.appendChild(svg); apply();
 }
@@ -569,7 +578,7 @@ function renderTeam() {
   $("#team-sub").textContent = `${DATA.teams[tm]}: results by season, and where its starter money sat relative to the league average that year. The bars always show point differential.`;
   $("#team-key").hidden = state.view.team === "table"; readout.hidden = state.view.team === "table";
   if (state.view.team === "table") {
-    host.appendChild(table(["Season", "Pt diff/g", "Win %", ...POS.map(p => p + " %")], rows.map(r => [r.s, fmt(r.pd, 1), r.w.toFixed(3), ...r.st.map(v => v.toFixed(1))])));
+    host.appendChild(table(["Season", "Pt diff/g", "Win %", "Finish", ...POS.map(p => p + " %")], rows.map(r => [r.s, fmt(r.pd, 1), r.w.toFixed(3), r.fin, ...r.st.map(v => v.toFixed(1))])));
     return;
   }
   const insight = teamInsight(rows), setReadout = t => { readout.textContent = t || insight; };
@@ -584,13 +593,13 @@ function renderTeam() {
     if (t % 10 === 0 || t === 0) svg.appendChild(s("text", { class: "t-muted", x: mL - 6, y: y(t) + 4, "text-anchor": "end", text: String(t) }));
   });
   const cw = Math.min(24, band - 6);
-  const barText = r => `${tm} ${r.s}: ${fmt(r.pd, 1)} pts/game, win % ${r.w.toFixed(3)}. Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays.`;
+  const barText = r => `${tm} ${r.s}: ${fmt(r.pd, 1)} pts/game, win % ${r.w.toFixed(3)}, finished ${ord(r.fin)} of 32. Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays.`;
   const cellText = (r, pi) => { const lg = lgMean(r.s, pi), diff = r.st[pi] - lg; return `${tm} ${r.s}, ${POSNAME[POS[pi]]}: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M). League average ${lg.toFixed(1)}% (${fmt(diff, 1)} percentage points).`; };
   rows.forEach((r, i) => {
     const cx = bx(i) + band / 2, top = y(r.pd), g = s("g", { class: "col" });
     g.appendChild(s("path", { class: r.pd >= 0 ? "col-pos" : "col-neg", d: barPath(cx - cw / 2, cw, y(0), top, 4) }));
     g.appendChild(s("rect", { x: bx(i), y: mT, width: band, height: topH, fill: "transparent" }));
-    g.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, fmt(r.pd, 1) + " pts/game", [`${tm} ${r.s}`, `Win % ${r.w.toFixed(3)}`, `Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays`]); });
+    g.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, fmt(r.pd, 1) + " pts/game", [`${tm} ${r.s}`, `Finished ${ord(r.fin)} of 32 (draft slot ${33 - r.fin})`, `Win % ${r.w.toFixed(3)}`, `Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays`]); });
     g.addEventListener("pointerleave", hideTip);
     g.addEventListener("click", () => { setReadout(barText(r)); sel = { i, row: -1 }; place(); });
     svg.appendChild(g);
@@ -646,6 +655,7 @@ const years = []; for (let y = DATA.seasons[0]; y <= DATA.seasons[1]; y++) years
 fill($("#find-outcome"), OUTS, state.find.outcome);
 fill($("#exp-outcome"), OUTS, state.exp.outcome); fill($("#exp-pos"), POS.map(p => [p, POSNAME[p]]), state.exp.pos);
 fill($("#exp-from"), years, state.exp.from); fill($("#exp-to"), years, state.exp.to);
+fill($("#exp-team"), [["", "No team"], ...teams.map(t => [t, DATA.teams[t]])], "");
 fill($("#team-team"), teams.map(t => [t, DATA.teams[t]]), state.tm.team); fill($("#team-from"), years, state.tm.from); fill($("#team-to"), years, state.tm.to);
 const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); };
 function seasonRange(st, fromSel, toSel, render) {   // keeps from <= to when either changes
@@ -659,6 +669,7 @@ function setView(id, view) {
 }
 $("#find-outcome").addEventListener("change", e => { state.find.outcome = e.target.value; renderFindings(); });
 $("#exp-outcome").addEventListener("change", e => { state.exp.outcome = e.target.value; renderExplorer(); });
+$("#exp-team").addEventListener("change", e => { pinTeam(e.target.value); state.hover = null; applyHighlight(); say(state.pinned ? `Highlighting ${DATA.teams[state.pinned]}.` : "Highlight cleared."); });
 $("#exp-pos").addEventListener("change", e => { state.exp.pos = e.target.value; renderExplorer(); renderFindings(); });   // chart 1 shades the open position
 seasonRange(state.exp, "#exp-from", "#exp-to", renderExplorer);
 $("#team-team").addEventListener("change", e => { state.tm.team = e.target.value; renderTeam(); });
@@ -667,7 +678,7 @@ $("#find-reset").addEventListener("click", () => {
   Object.assign(state.find, DEFAULTS.find); $("#find-outcome").value = state.find.outcome; setView("s-find", "chart"); renderFindings();
 });
 $("#exp-reset").addEventListener("click", () => {
-  Object.assign(state.exp, DEFAULTS.exp); state.pinned = null; state.hover = null; setView("s-exp", "chart");
+  Object.assign(state.exp, DEFAULTS.exp); pinTeam(null); state.hover = null; setView("s-exp", "chart");
   $("#exp-outcome").value = state.exp.outcome; $("#exp-pos").value = state.exp.pos; $("#exp-from").value = state.exp.from; $("#exp-to").value = state.exp.to;
   renderExplorer(); renderFindings();
 });

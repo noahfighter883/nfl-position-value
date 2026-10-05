@@ -7,7 +7,7 @@ Starters and bench players are separated using snap counts.
 
 **Read the story:** [`WRITEUP.md`](WRITEUP.md) is a short case study of the question, method, findings and limits.
 
-**Explore them:** open [`dashboard/index.html`](dashboard/index.html) in a browser. It is one self-contained file (no server or libraries) with a findings chart, a position explorer, and a team explorer. Numbers come from the same data and models as the notebook.
+**Explore them:** open [`dashboard/index.html`](dashboard/index.html) in a browser. It is one self-contained file (no server or libraries) with a findings chart, a position explorer (with a team highlight dropdown), and a team explorer. Four outcomes can be switched in the charts: point differential, offense EPA, defense EPA, and overall finish. Numbers come from the same data and models as the notebook.
 
 ## Headline findings
 - **QB** is the clearest case: higher starter-QB spend goes with better point differential, with most of the gain by ~$19M. It holds after controlling for rookie-scale contracts, and in EPA terms it is entirely a *passing offense* effect. Money tied up in non-starting QBs and OL goes with worse results, but it turns out to be mostly *injured-reserve* money (a same-season injury effect), not wasted spending on depth. Returns taper off above roughly 14% of the cap (about $30M+ today); a decline at the very top is possible but not established.
@@ -21,7 +21,7 @@ Starters and bench players are separated using snap counts.
 ## Method (short)
 - **Cap data:** per-player cap hits from Over the Cap, via `nflreadpy`. Cap share = position group's cap ÷ team's tracked cap.
 - **Starter** = top-N at each position by snaps (QB1, RB1, WR3, TE1, OL5, DL2, EDGE2, LB2, CB3, S2); everyone else is bench.
-- **Outcome:** regular-season point differential per game (win % as a robustness check).
+- **Outcomes:** regular-season point differential per game, offensive and defensive EPA per play, and **overall finish** (1 = champion ... 32 = worst, read from each team's original pre-trade first-round draft slot, so it includes playoff results).
 - **Model:** OLS with season fixed effects, standard errors clustered by team, bench spending as the reference group.
 
 ## Reproduce

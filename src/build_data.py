@@ -3,11 +3,14 @@
 Sources (all via nflreadpy / nflverse):
   - contracts: Over the Cap per-player, per-year cap numbers (season_history)
   - snap counts: PFR, 2013+
-  - schedules: game results
+  - schedules (incl. playoffs): game results, and the league's draft ordering
+  - draft picks: used only to settle exact ties when ordering teams by finish
 
 Outputs to data/:
   player_season.parquet  one row per player-team-season: position group, cap $M, snap share, starter flag
   team_season.parquet    one row per team-season: cap $M and share by position group x role, plus results
+                         (orig_slot = pre-trade first-round slot in the next draft, 1 = worst finish ... 32 = champion;
+                          finish = 33 - orig_slot, so 1 = best finish ... 32 = worst)
   qb_season.parquet      one row per passer-season: regular-season pass plays and total EPA
   qb_team_season.parquet same, split by team (a traded QB has one row per team)
 """
@@ -164,6 +167,79 @@ def load_qb_passing() -> pd.DataFrame:
     return pd.concat(frames).rename(columns={"passer_player_id": "gsis_id", "posteam": "team"})
 
 
+# PFR-style codes (draft file) and old franchise codes -> the current codes used everywhere else
+DRAFT_CODE_FIX = {"OAK": "LV", "SD": "LAC", "STL": "LA", "LAR": "LA", "LVR": "LV", "GNB": "GB", "KAN": "KC", "NOR": "NO",
+                  "NWE": "NE", "SFO": "SF", "TAM": "TB", "SDG": "LAC"}
+PLAYOFF_ROUND = {"WC": 1, "DIV": 2, "CON": 3, "SB": 4}
+
+
+def original_draft_order(sched: pd.DataFrame, season: int) -> pd.DataFrame:
+    """Each team's pre-trade first-round slot in the draft after `season` (1 = earliest pick = worst finish, 32 = champion).
+
+    The league's rule: non-playoff teams by reverse regular-season record, then playoff teams grouped by the round they
+    lost in (wild card, divisional, conference, Super Bowl loser), then the champion last. Within a group, worse record
+    picks first; equal records are split by strength of schedule (LOWER strength of schedule picks first). Exact ties
+    after that are returned in team order and settled by resolve_exact_ties().
+    """
+    g = sched[(sched["season"] == season) & sched["home_score"].notna()].copy()
+    for c in ("home_team", "away_team"):
+        g[c] = g[c].replace(DRAFT_CODE_FIX)
+    rows = []
+    for r in g[g["game_type"] == "REG"].itertuples():
+        hw = 1.0 if r.home_score > r.away_score else 0.5 if r.home_score == r.away_score else 0.0
+        rows += [(r.home_team, r.away_team, hw), (r.away_team, r.home_team, 1 - hw)]
+    G = pd.DataFrame(rows, columns=["team", "opp", "w"])
+    rec = G.groupby("team")["w"].agg(["sum", "count"])
+    G["opp_w"], G["opp_n"] = G["opp"].map(rec["sum"]), G["opp"].map(rec["count"])
+    sos = G.groupby("team").apply(lambda d: d["opp_w"].sum() / d["opp_n"].sum(), include_groups=False)
+    group = {t: 0 for t in rec.index}                      # 0 = missed the playoffs
+    for r in g[g["game_type"] != "REG"].itertuples():
+        loser = r.home_team if r.home_score < r.away_score else r.away_team
+        winner = r.away_team if loser == r.home_team else r.home_team
+        group[loser] = max(group[loser], PLAYOFF_ROUND[r.game_type])
+        if r.game_type == "SB":
+            group[winner] = 5                              # champion
+    df = pd.DataFrame({"team": rec.index, "pct": (rec["sum"] / rec["count"]).values,
+                       "sos": sos.reindex(rec.index).values, "grp": [group[t] for t in rec.index]})
+    df = df.sort_values(["grp", "pct", "sos", "team"]).reset_index(drop=True)
+    df["slot"] = np.arange(1, len(df) + 1)
+    df["season"] = season
+    return df
+
+
+def resolve_exact_ties(order: pd.DataFrame, actual_pick_by_slot: dict) -> pd.DataFrame:
+    """Teams with identical group, record AND strength of schedule are ordered by rules/coin flips we cannot see.
+    When the real draft shows those very teams holding exactly those slots, use the real order."""
+    order = order.copy()
+    for _, tied in order.groupby(["grp", "pct", "sos"]):
+        if len(tied) < 2:
+            continue
+        slots = sorted(tied["slot"])
+        held = [actual_pick_by_slot.get(s) for s in slots]
+        if set(held) == set(tied["team"]):
+            for team, slot in zip(held, slots):
+                order.loc[order["team"] == team, "slot"] = slot
+    return order.sort_values("slot").reset_index(drop=True)
+
+
+def load_finish() -> pd.DataFrame:
+    """Per team-season: orig_slot (pre-trade first-round slot in the next draft) and finish = 33 - orig_slot (1 = best)."""
+    sched = nfl.load_schedules(list(range(FIRST, LAST + 1))).to_pandas()
+    picks = nfl.load_draft_picks(list(range(FIRST + 1, LAST + 2))).to_pandas()
+    picks = picks[picks["round"] == 1].copy()
+    picks["team"] = picks["team"].replace(DRAFT_CODE_FIX)
+    out = []
+    for season in range(FIRST, LAST + 1):
+        order = original_draft_order(sched, season)
+        actual = picks[picks["season"] == season + 1]
+        if len(actual) == 32:                              # forfeited first-rounders renumber the real draft; skip tie-breaking then
+            order = resolve_exact_ties(order, dict(zip(actual["pick"], actual["team"])))
+        out.append(order[["season", "team", "slot"]])
+    f = pd.concat(out).rename(columns={"slot": "orig_slot"})
+    f["finish"] = 33 - f["orig_slot"]
+    return f
+
+
 def assign_roles(ps: pd.DataFrame, rule: dict) -> pd.Series:
     """'starter' / 'bench' per player-season under a starter rule ({'slots': {pos: N}} or {'share': cutoff}).
 
@@ -220,7 +296,8 @@ def main() -> None:
         [["season", "team", "qb1_rookie_deal", "qb1_draft_overall", "qb1_cap_m"]]
     wide = wide.merge(qb1, on=["season", "team"], how="left")
 
-    ts = wide.merge(results, on=["season", "team"], how="inner").merge(load_epa(), on=["season", "team"], how="left")
+    ts = (wide.merge(results, on=["season", "team"], how="inner").merge(load_epa(), on=["season", "team"], how="left")
+              .merge(load_finish(), on=["season", "team"], how="left"))
     ts.to_parquet(OUT / "team_season.parquet", index=False)
     qb_team = load_qb_passing()
     qb_team.to_parquet(OUT / "qb_team_season.parquet", index=False)
