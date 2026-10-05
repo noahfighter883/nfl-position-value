@@ -9,6 +9,7 @@ Outputs to data/:
   player_season.parquet  one row per player-team-season: position group, cap $M, snap share, starter flag
   team_season.parquet    one row per team-season: cap $M and share by position group x role, plus results
   qb_season.parquet      one row per passer-season: regular-season pass plays and total EPA
+  qb_team_season.parquet same, split by team (a traded QB has one row per team)
 """
 from pathlib import Path
 
@@ -153,13 +154,14 @@ def load_availability() -> pd.DataFrame:
 
 
 def load_qb_passing() -> pd.DataFrame:
-    """Per passer-season: regular-season pass plays (sacks included) and total EPA."""
+    """Per passer-team-season: regular-season pass plays (sacks included) and total EPA."""
     frames = []
     for season in range(FIRST, LAST + 1):
-        d = nfl.load_pbp([season]).select(["season", "season_type", "play_type", "passer_player_id", "epa"]).to_pandas()
+        d = nfl.load_pbp([season]).select(["season", "season_type", "play_type", "passer_player_id", "posteam", "epa"]).to_pandas()
         d = d[(d["season_type"] == "REG") & (d["play_type"] == "pass") & d["epa"].notna() & d["passer_player_id"].notna()]
-        frames.append(d.groupby(["passer_player_id", "season"])["epa"].agg(pass_plays="size", epa_sum="sum").reset_index())
-    return pd.concat(frames).rename(columns={"passer_player_id": "gsis_id"})
+        d["posteam"] = d["posteam"].replace(ABBR_FIX)
+        frames.append(d.groupby(["passer_player_id", "season", "posteam"])["epa"].agg(pass_plays="size", epa_sum="sum").reset_index())
+    return pd.concat(frames).rename(columns={"passer_player_id": "gsis_id", "posteam": "team"})
 
 
 def assign_roles(ps: pd.DataFrame, rule: dict) -> pd.Series:
@@ -220,7 +222,9 @@ def main() -> None:
 
     ts = wide.merge(results, on=["season", "team"], how="inner").merge(load_epa(), on=["season", "team"], how="left")
     ts.to_parquet(OUT / "team_season.parquet", index=False)
-    load_qb_passing().to_parquet(OUT / "qb_season.parquet", index=False)
+    qb_team = load_qb_passing()
+    qb_team.to_parquet(OUT / "qb_team_season.parquet", index=False)
+    qb_team.groupby(["gsis_id", "season"], as_index=False)[["pass_plays", "epa_sum"]].sum().to_parquet(OUT / "qb_season.parquet", index=False)
 
     print(f"player_season: {len(ps):,} rows | team_season: {len(ts)} rows "
           f"({ts.season.min()}-{ts.season.max()}, {ts.team.nunique()} teams)")
