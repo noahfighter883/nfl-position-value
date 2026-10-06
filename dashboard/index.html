@@ -211,7 +211,7 @@ body.intro .chart svg .dot-sig, body.intro .chart svg .dot-ns, body.intro .chart
   <button class="theme" id="theme" type="button" aria-label="Switch color theme"></button>
   <header>
     <h1>Which NFL positions are worth paying for?</h1>
-    <p class="lead">Quarterback spending has the clearest payoff, <b id="lead-qb">+0.31 points per game</b> for each point of cap share, almost all of it through the passing game. Receivers, linemen, edge rushers and cornerbacks pay off on the side of the ball where they play. Tight end looks valuable too, but it fails a basic placebo check, so I treat it as noise. All of it together explains <b id="lead-r2">about 10%</b> of how teams perform.</p>
+    <p class="lead">Quarterback spending has the clearest payoff, <b id="lead-qb">+0.31 points per game</b> for each point of cap share, almost all of it through the passing game. Receivers, linemen, edge rushers and cornerbacks pay off on the side of the ball where they play. Tight end looks valuable too, but it fails a basic placebo check, so I treat it as noise. All of it together explains <b id="lead-r2">about 10%</b> of how teams perform in these seasons, and closer to <b>4&ndash;8%</b> when predicting seasons the model has not seen. Within a single team, tight end spending shows no effect at all.</p>
     <p class="sub">Salary-cap spending by position against team results, 2013&ndash;2025: 416 team-seasons, 32 teams. Starters are separated from bench depth using snap counts. QB returns taper above roughly 14% of the cap (about $30M+ today), though the data cannot say whether they turn negative.</p>
   </header>
 
@@ -346,7 +346,7 @@ const SHARE_OF = p => p === "DEAD" ? "Dead money and unspent cap, as a share of 
 const NOUN = p => p === "DEAD" ? "dead money and unspent cap" : `${p} starter`;
 const UNITS = [["Offense", ["QB", "RB", "WR", "TE", "OL"]], ["Defense", ["DL", "EDGE", "LB", "CB", "S"]], ["Off the field", ["DEAD"]]];
 const NOTE = {
-  pd: "Quarterback is the clearest positional payoff; dead money and unspent cap is the strongest negative marker. Tight end has the largest estimate but fails the offense-versus-defense test (switch to Defense EPA), so treat it as noise.",
+  pd: "Quarterback is the clearest positional payoff; dead money and unspent cap is the strongest negative marker. Tight end has the largest estimate but fails the offense-versus-defense test (switch to Defense EPA), so treat it as noise. Within a single team across seasons it has no effect at all.",
   off: "QB, WR and OL help the offense. Defensive positions show nothing, as they should. Dead money goes with a worse offense too.",
   fin: "Finish is where a team ended among the 32 teams, so it includes playoffs; estimates are places gained. QB leads again, dead money again goes with fewer places, and tight end again fails the placebo check.",
   dfn: "EDGE and CB help the defense; interior DL points the same way with less certainty. Dead money goes with a worse defense too, so it looks like a team-wide signal, and since only the same season counts it may be as much a result of a bad year as a cause. Tight end should show nothing here but doesn't, so its other results are probably noise.",
@@ -440,7 +440,7 @@ function renderFindings() {
   const o = state.find.outcome, byPos = Object.fromEntries(DATA.findings[o].map(d => [d.pos, d]));
   const groups = UNITS.map(([label, ps]) => ({ label, rows: ps.map(p => byPos[p]).sort((a, b) => b.coef - a.coef) }));
   const all = groups.flatMap(g => g.rows);
-  $("#find-note").textContent = NOTE[o] + " Together the positions and dead money explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + ".";
+  $("#find-note").textContent = NOTE[o] + " Together the positions and dead money explain about " + Math.round(DATA.r2[o] * 100) + "% of the variation in " + OUT[o].lc + " in these seasons (less on seasons the model has not seen).";
   $("#find-key").hidden = state.view.find === "table";
   if (state.view.find === "table") {
     host.appendChild(table(["Unit", "Position", "Effect (" + OUT[o].short + " per +1 point of cap)", "95% low", "95% high", "p-value", "Significant under (of 6 starter rules)"],

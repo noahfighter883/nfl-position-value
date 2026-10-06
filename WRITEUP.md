@@ -4,7 +4,7 @@ A team-level look at salary cap spending and results across 13 seasons (2013 to 
 
 ## The short version
 
-Spending on the starting quarterback has the clearest payoff in this data, and it works through the passing game. Receivers and offensive linemen help the offense, and edge rushers and cornerbacks help the defense, each on the side of the ball where they play. Tight end looks valuable at first, but a simple check says that result is probably noise. Taken together, how a team splits its cap explains about 16% of how it performs.
+Spending on the starting quarterback has the clearest payoff in this data, and it works through the passing game. Receivers and offensive linemen help the offense, and edge rushers and cornerbacks help the defense, each on the side of the ball where they play. Tight end looks valuable at first, but a simple check says that result is probably noise. Taken together, how a team splits its cap explains about 16% of how it performs in the seasons the model was fit on, and closer to 4 to 8% when it predicts seasons it has not seen.
 
 The strongest single marker is not a position at all: teams carrying a lot of dead money and unspent cap do worse. That is probably as much a result of a bad year as a cause of one.
 
@@ -45,6 +45,8 @@ On point differential alone, the line, edge and corner results are weaker (their
 
 Tight end had the largest estimate in the first model, and it was stable across starter definitions. Then I ran a placebo check. Spending on offensive positions should not move the defense, and spending on defensive positions should not move the offense. Every position passed except one. Tight end spending "improved" the defense (+0.37, p = 0.020) about as much as it improved the offense. A tight end cannot cause that. I treat the original result as noise, or as a stand-in for something I did not measure. Stability across definitions did not save it, because the same quirk was present in every version.
 
+A stricter test confirms it. Adding a fixed effect for every team asks whether a team does better in years when it spends more than its own usual amount. Within a team, tight end spending has no effect on point differential (-0.08, against +0.38 across teams). The original result was about which franchises spend on tight ends, not about what the spending does.
+
 ### Overall finish tells the same story
 
 ![Overall finish effects](writeup/img/04_overall_finish.png)
@@ -52,6 +54,10 @@ Tight end had the largest estimate in the first model, and it was stable across 
 Point differential ignores the playoffs, so I added a fourth outcome: where a team ended the season among the 32 teams. The league's own first-round draft order encodes this (champion last, then the other playoff teams by the round they lost, then everyone else by record), so I rebuilt each team's original pre-trade slot from the standings and flipped it so 1 is the champion. I checked the rebuilt slots against the real drafts and the trades table: 93% (388 of 416) could be verified, and the rest are mostly exact ties or recent trades missing from the data.
 
 Results are shown as places gained per point of cap share. QB again leads (+0.37 places, interval +0.21 to +0.53), with offensive line (+0.25) and edge rusher (+0.25, borderline) behind it. Tight end is again the largest estimate (+0.63) and again the one that fails the placebo check, and dead money again goes with fewer places.
+
+### Is it the position or the franchise?
+
+A fair worry is that good organizations simply pay quarterbacks, so spending would stand in for franchise quality. The team-level version of the test removes that: it compares each team only with itself in other years. QB survives at about three-quarters of its size (+0.19 points per game, p = 0.001, and +0.31 places in the standings). Dead money holds (-0.10 points per game). The offensive line gets stronger (+0.19, p = 0.002), and receivers and cornerbacks become significant on point differential. Edge rushers weaken on point differential but keep their defensive-EPA effect. So the quarterback and line results are not an artifact of which teams spend, and the tight end result is.
 
 ### QB spending tapers off
 
@@ -75,6 +81,12 @@ It also changes the position results. Part of what looked like a position effect
 
 I would not read this as dead money costing wins. Last season's dead money does not predict this season's results, only the same season's does. That fits teams that fall out of contention cutting players and leaving cap unspent, as much as it fits a poorly built roster. It is a good marker of a struggling team, and I cannot tell whether it is a cause.
 
+## How much of this predicts?
+
+The 16% figure is measured on the same seasons that fit the model, so it flatters it. I fit on earlier seasons and predicted later ones (training on 2013 to 2020 and testing on 2021 to 2025, and also predicting each season from 2017 on using only earlier ones). One season ahead, the point differential model explains about 4 to 8%, with a correlation of roughly 0.2 to 0.3 between predicted and actual. Offense is the most predictable (about 5 to 10%) and defense is essentially not predictable out of sample, even though several defensive positions look significant in sample.
+
+Simpler models do as well or better: the quarterback alone, or quarterback plus dead money, predicts as well as all ten positions combined. The extra positions mostly add noise. Dead money is measured in the same season as the result, so it is a comparison, not a forecast. The takeaway is modest: cap allocation tells you a little about how a team will do relative to its peers, and almost all of that comes from the quarterback.
+
 ## The dashboard
 
 The page lets you test these claims yourself. The effects chart shows every estimate with its interval, and a toggle switches among the four outcomes. The position explorer plots any position's spending against any outcome, with a team highlight and a season range. The team explorer shows one team's results by season (also switchable among the four outcomes) above a grid of where its money sat against the league average that year. Dead money and unspent cap appears as an extra row in each. There is a light and a dark theme, and on a phone the team explorer opens on the last eight seasons so the grid stays readable.
@@ -85,11 +97,14 @@ The page lets you test these claims yourself. The effects chart shows every esti
 - **Cap hit is an accounting number.** Restructures and late-contract spikes inflate it, so it is an imperfect measure of what a player costs.
 - **Partial coverage.** The cap data covers part of the official cap, so I use shares. The dead-money measure is the leftover, so it also absorbs unspent cap and each team's carryover, and it relies on the base cap figures I typed in.
 - **Small samples at the edges.** There are 59 team-seasons at the top of QB spending and about 76 seasons where the starter missed four or more weeks.
+- **Small predictive power.** On seasons the model has not seen, cap allocation explains single-digit percentages of how teams perform.
 - **Many comparisons.** Eleven rows across several outcomes means a few significant results are expected by chance. The pattern across results is what gives me confidence, more than any single p-value.
 
 ## How I checked myself
 
 - Reran the key findings under six definitions of "starter".
+- Added a fixed effect for every team, so a position is only credited when a team does better in years it spends more than its own norm. It cut tight end to nothing.
+- Tested the model on seasons it was not fit on, which cut the headline explained figure from 16% to single digits.
 - Rebuilt each team's pre-trade draft slot from the standings and checked it against the real drafts and trades (93% verified) before using it as an outcome.
 - Split the sample at 2019 to see whether a point of cap share means the same thing as the cap grew. The position effects held (QB +0.28 and +0.26 points per game in the two halves); only dead money weakened.
 - Checked that last season's dead money does not predict this season, which kept me from reading it as a cause.
