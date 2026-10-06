@@ -70,6 +70,7 @@ def main() -> None:
     term = lambda pos: "DEAD_pp" if pos == DEAD else f"{pos}_st"
     sig_count = {k: {p: 0 for p in ALL} for k in OUTCOMES}
     base = {}
+    covs = {}   # covariance of the coefficients (clustered), for the what-if tool
     for name, rule in STARTER_RULES.items():
         d = with_shares(ps, rule, outcomes, dead)
         for key, col in OUTCOMES.items():
@@ -83,6 +84,7 @@ def main() -> None:
                                    "hi": max(sign * ci.loc[term(pos), 0], sign * ci.loc[term(pos), 1]),
                                    "p": m.pvalues[term(pos)]} for pos in ALL}
                 base[key]["_r2"] = m.rsquared
+                covs[key] = m.cov_params().loc[[term(q) for q in ALL], [term(q) for q in ALL]].values
 
     findings = {key: [{"pos": pos, **{k: round(float(v), 4) for k, v in base[key][pos].items()}, "robust": sig_count[key][pos]}
                       for pos in ALL] for key in OUTCOMES}
@@ -97,6 +99,7 @@ def main() -> None:
 
     data = {"pos": ALL, "teams": TEAM_NAMES, "rows": rows, "findings": findings,
             "r2": {k: round(float(base[k]["_r2"]), 3) for k in OUTCOMES},
+            "cov": {k: [[round(float(v), 6) for v in row] for row in covs[k]] for k in OUTCOMES},
             "seasons": [int(ts.season.min()), int(ts.season.max())]}
 
     html = (Path(__file__).resolve().parent / "dashboard_template.html").read_text()

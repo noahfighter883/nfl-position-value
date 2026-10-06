@@ -189,6 +189,36 @@ thead th { position: sticky; top: 0; background: var(--surface); color: var(--mu
 .more > summary::after { content: "+"; margin-left: auto; font: 600 1.6rem/1 var(--display); color: var(--acc); }
 .more[open] > summary::after { content: "\2212"; }
 .more .hint { color: var(--muted); font-size: .85rem; }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.chip { min-height: 36px; padding: 0 12px; border: 1px solid var(--ctrl); border-radius: 2px; background: var(--surface); color: var(--ink2); font: inherit; font-size: .875rem; cursor: pointer; }
+.chip:hover { background: var(--wash); color: var(--ink); }
+.whatif { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+#what-result { position: sticky; top: 12px; }
+.wgroup { margin: 10px 0 2px; font: 700 .9rem/1 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); }
+.wgroup:first-child { margin-top: 0; }
+.wrow { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) 9.5rem; gap: 10px; align-items: center; min-height: 34px; }
+.wrow label { font-size: .95rem; color: var(--ink); }
+.wrow input[type=range] { width: 100%; accent-color: var(--acc); min-height: 28px; margin: 0; }
+.wrow output { font-size: .82rem; color: var(--ink2); font-family: var(--mono); white-space: nowrap; text-align: right; }
+.wrow.moved label { font-weight: 700; }
+.wr h3 { margin: 0; font: 700 1.1rem/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
+.wr .big { font-family: var(--display); font-weight: 800; font-size: 2.6rem; line-height: 1.05; margin-top: 4px; }
+.wr .small { color: var(--ink2); font-size: .875rem; margin-top: 4px; }
+.wr .contrib { display: grid; gap: 4px; margin-top: 12px; }
+.crow { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) 3.4rem; gap: 8px; align-items: center; font-size: .85rem; }
+.crow .track { position: relative; height: 10px; background: var(--neutral); }
+.crow .bar { position: absolute; top: 0; bottom: 0; }
+.crow .bar.pos { background: var(--s1); } .crow .bar.neg { background: var(--s2); }
+.crow .zero { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--ink2); }
+.crow span:last-child { text-align: right; font-family: var(--mono); }
+.wrow label { white-space: nowrap; }
+@media (max-width: 760px) {
+  .whatif { grid-template-columns: minmax(0, 1fr); }
+  #what-result { order: -1; position: sticky; top: 8px; z-index: 3; padding: 8px 14px; }   /* stays in view while a slider is dragged */
+  .wr h3 { font-size: .95rem; } .wr .big { font-size: 2rem; margin-top: 0; }
+  .wr .contrib, .wr .small:not(.wr-say) { display: none; }
+  .wrow { grid-template-columns: 3.6rem minmax(0, 1fr); } .wrow output { grid-column: 2; text-align: left; margin-top: -4px; }
+}
 .method { color: var(--ink2); font-size: .95rem; max-width: 80ch; display: grid; gap: 10px; }
 .method b { color: var(--ink); font-weight: 600; }
 .glossary { display: grid; gap: 10px; margin: 18px 0 0; max-width: 80ch; font-size: .95rem; }
@@ -291,6 +321,26 @@ body.intro .chart svg .dot-sig, body.intro .chart svg .dot-ns, body.intro .chart
     </div>
   </section>
 
+  <section id="s-what" aria-labelledby="h-what">
+    <div class="head"><div><h2 id="h-what" tabindex="-1">What-if</h2><p id="what-sub"></p></div></div>
+    <div class="controls" role="group" aria-label="Controls for the what-if tool">
+      <div class="field"><label for="what-team">Team</label><select id="what-team"></select></div>
+      <div class="field"><label for="what-season">Season</label><select id="what-season"></select></div>
+      <div class="field"><label for="what-outcome">Predict</label><select id="what-outcome"></select></div>
+      <button class="link" id="what-reset" type="button">Reset</button>
+    </div>
+    <div class="presets" role="group" aria-label="Quick scenarios">
+      <button type="button" class="chip" data-p="QB:5">+5 points to QB</button>
+      <button type="button" class="chip" data-p="OL:5">+5 points to OL</button>
+      <button type="button" class="chip" data-p="DEAD:-10">Cut dead money by 10 points</button>
+    </div>
+    <div class="whatif">
+      <div class="card" id="what-sliders"></div>
+      <div class="card" id="what-result"></div>
+    </div>
+    <p class="note">The estimate is the model&rsquo;s average association, not a forecast for this team: it assumes a point of cap share does the same thing for every team, and the interval is for that average effect, not for one season&rsquo;s result. Sliders stay within the range teams have actually spent. Bench and special teams absorb whatever the starters gain or lose.</p>
+  </section>
+
   <section aria-labelledby="h-beyond">
     <div class="head"><div><h2 id="h-beyond">Beyond the model: injuries and depth</h2><p>From the notebook (sections 9 to 13). Bench spending looked wasteful at first; most of it is injury cost.</p></div></div>
     <table class="ledger">
@@ -353,9 +403,9 @@ const NOTE = {
 };
 const SEASONS = { from: DATA.seasons[0], to: DATA.seasons[1] };
 const PHONE = matchMedia("(max-width: 560px)").matches;   // on a phone the team explorer opens on the last 8 seasons so each column is big enough to tap
-const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", outcome: "pd", ...SEASONS, from: PHONE ? SEASONS.to - 7 : SEASONS.from } };
+const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", outcome: "pd", ...SEASONS, from: PHONE ? SEASONS.to - 7 : SEASONS.from }, wi: { team: "KC", season: SEASONS.to, outcome: "pd" } };
 // each section owns its controls: find = effects chart, exp = position explorer, tm = team explorer
-const state = { find: { ...DEFAULTS.find }, exp: { ...DEFAULTS.exp }, tm: { ...DEFAULTS.tm }, view: { find: "chart", exp: "chart", team: "chart" }, pinned: null, hover: null };
+const state = { find: { ...DEFAULTS.find }, exp: { ...DEFAULTS.exp }, tm: { ...DEFAULTS.tm }, wi: { ...DEFAULTS.wi }, view: { find: "chart", exp: "chart", team: "chart" }, pinned: null, hover: null };
 
 /* ---------- helpers ---------- */
 function s(tag, attrs, kids) {
@@ -700,6 +750,65 @@ function renderTeam() {
   host.appendChild(svg);
 }
 
+/* ---------- 4. what-if ---------- */
+const WGROUPS = UNITS.map(([label, ps]) => [label, ps]);
+const maxShare = POS.concat("DEAD").map((_, i) => Math.ceil(Math.max(...ROWS.map(r => r.st[i])) * 2) / 2);
+let wBase = null, wInputs = [];
+const wRow = () => ROWS.find(r => r.t === state.wi.team && r.s === state.wi.season);
+function buildWhat() {
+  const host = $("#what-sliders"); host.replaceChildren(); wInputs = [];
+  wBase = wRow();
+  $("#what-sub").textContent = `Start from what ${DATA.teams[state.wi.team]} actually spent in ${state.wi.season}, move money between positions, and see what the model associates with it.`;
+  WGROUPS.forEach(([label, ps]) => {
+    host.appendChild(h("div", { class: "wgroup", text: label }));
+    ps.forEach(p => {
+      const i = POS.indexOf(p), id = "what-" + p, base = Math.round(wBase.st[i] * 10) / 10;   // the slider snaps to 0.1, so the baseline must too
+      const input = h("input", { type: "range", id, min: 0, max: String(Math.max(maxShare[i], Math.ceil(base))), step: "0.1", value: String(base) });
+      const out = h("output", { for: id });
+      const row = h("div", { class: "wrow" }, [h("label", { for: id, text: POSLBL(p) }), input, out]);
+      input.addEventListener("input", () => updateWhat());
+      input.addEventListener("change", () => say(`${POSNAME[p]} ${(+input.value).toFixed(1)} percent. ${$("#what-result .wr-say")?.textContent || ""}`));
+      host.appendChild(row); wInputs[i] = { input, out, row, base };
+    });
+  });
+  updateWhat();
+}
+function whatDelta() { return wInputs.map(w => +w.input.value - w.base); }
+function updateWhat() {
+  const o = state.wi.outcome, d = whatDelta(), beta = DATA.findings[o].map(f => f.coef), V = DATA.cov[o];
+  const est = d.reduce((t, v, i) => t + v * beta[i], 0);
+  let variance = 0; d.forEach((a, i) => d.forEach((b, j) => { variance += a * b * V[i][j]; }));
+  const se = Math.sqrt(Math.max(variance, 0)), lo = est - 1.96 * se, hi = est + 1.96 * se;
+  wInputs.forEach((w, i) => {
+    const v = +w.input.value, dl = v - w.base;
+    w.out.textContent = `${v.toFixed(1)}% · $${(v * wBase.cap / 100).toFixed(1)}M${Math.abs(dl) > 0.04 ? " (" + fmt(dl, 1) + ")" : ""}`;
+    w.row.classList.toggle("moved", Math.abs(dl) > 0.04);
+  });
+  const moved = d.some(v => Math.abs(v) > 0.04), res = $("#what-result"); res.replaceChildren();
+  const unit = OUT[o].card || OUT[o].short, startersNow = wInputs.slice(0, 10).reduce((t, w) => t + +w.input.value, 0), startersWas = wInputs.slice(0, 10).reduce((t, w) => t + w.base, 0);
+  const kids = [h("h3", { text: `Predicted change in ${OUT[o].lc}` })];
+  if (!moved) {
+    kids.push(h("div", { class: "small", text: "Move a slider, or pick a quick scenario above." }));
+  } else {
+    kids.push(h("div", { class: "big", text: fmt(est, 2) + " " + unit }));
+    kids.push(h("div", { class: "small wr-say", text: `95% interval ${fmt(lo, 2)} to ${fmt(hi, 2)}${lo < 0 && hi > 0 ? ", which includes zero" : ""}.${OUT[o].invert ? " Positive means a better finish." : ""}` }));
+    const mx = Math.max(...d.map((v, i) => Math.abs(v * beta[i])), 1e-9), box = h("div", { class: "contrib", role: "list", "aria-label": "Contribution by position" });
+    d.forEach((v, i) => { const c = v * beta[i]; if (Math.abs(v) <= 0.04) return;
+      const bar = h("div", { class: "bar " + (c >= 0 ? "pos" : "neg") }); const w = Math.abs(c) / mx * 50;
+      bar.style.width = w + "%"; bar.style.left = (c >= 0 ? 50 : 50 - w) + "%";
+      box.appendChild(h("div", { class: "crow", role: "listitem" }, [h("span", { text: POSLBL(POS.concat("DEAD")[i]) }), h("div", { class: "track" }, [bar, h("div", { class: "zero" })]), h("span", { text: fmt(c, 2) })])); });
+    kids.push(box);
+    kids.push(h("div", { class: "small", text: `Starters hold ${startersNow.toFixed(1)}% of tracked cap (was ${startersWas.toFixed(1)}%); bench and special teams absorb the rest.` }));
+  }
+  kids.push(h("div", { class: "small", text: `${state.wi.team} ${state.wi.season} actually: ${valText(wBase, o)}.` }));
+  res.className = "card wr"; kids.forEach(k => res.appendChild(k));
+}
+function setPreset(spec) {
+  const [p, amt] = spec.split(":"), i = POS.concat("DEAD").indexOf(p), w = wInputs[i];
+  w.input.value = String(Math.max(0, Math.min(+w.input.max, w.base + +amt))); updateWhat();
+  say(`${POSNAME[p]} now ${(+w.input.value).toFixed(1)} percent of cap.`);
+}
+
 /* ---------- controls: every control belongs to one section ---------- */
 function fill(sel, items, value) { sel.replaceChildren(...items.map(([v, l]) => h("option", { value: v, text: l }))); sel.value = value; }
 const OUTS = Object.keys(OUT).map(k => [k, OUT[k].label]);
@@ -709,8 +818,9 @@ fill($("#exp-outcome"), OUTS, state.exp.outcome); fill($("#exp-pos"), POS.map(p 
 fill($("#exp-from"), years, state.exp.from); fill($("#exp-to"), years, state.exp.to);
 fill($("#exp-team"), [["", "No team"], ...teams.map(t => [t, DATA.teams[t]])], "");
 fill($("#team-outcome"), OUTS, state.tm.outcome);
+fill($("#what-team"), teams.map(t => [t, DATA.teams[t]]), state.wi.team); fill($("#what-season"), years, state.wi.season); fill($("#what-outcome"), OUTS, state.wi.outcome);
 fill($("#team-team"), teams.map(t => [t, DATA.teams[t]]), state.tm.team); fill($("#team-from"), years, state.tm.from); fill($("#team-to"), years, state.tm.to);
-const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); };
+const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); if (wInputs.length) updateWhat(); else buildWhat(); };
 function seasonRange(st, fromSel, toSel, render) {   // keeps from <= to when either changes
   $(fromSel).addEventListener("change", e => { st.from = +e.target.value; if (st.from > st.to) { st.to = st.from; $(toSel).value = st.to; } render(); });
   $(toSel).addEventListener("change", e => { st.to = +e.target.value; if (st.to < st.from) { st.from = st.to; $(fromSel).value = st.from; } render(); });
@@ -728,6 +838,11 @@ seasonRange(state.exp, "#exp-from", "#exp-to", renderExplorer);
 $("#team-team").addEventListener("change", e => { state.tm.team = e.target.value; renderTeam(); });
 $("#team-outcome").addEventListener("change", e => { state.tm.outcome = e.target.value; renderTeam(); say(`Bars now show ${OUT[state.tm.outcome].lc}.`); });
 seasonRange(state.tm, "#team-from", "#team-to", renderTeam);
+$("#what-team").addEventListener("change", e => { state.wi.team = e.target.value; buildWhat(); });
+$("#what-season").addEventListener("change", e => { state.wi.season = +e.target.value; buildWhat(); });
+$("#what-outcome").addEventListener("change", e => { state.wi.outcome = e.target.value; updateWhat(); say(`Predicting ${OUT[state.wi.outcome].lc}.`); });
+$("#what-reset").addEventListener("click", () => { Object.assign(state.wi, DEFAULTS.wi); $("#what-team").value = state.wi.team; $("#what-season").value = state.wi.season; $("#what-outcome").value = state.wi.outcome; buildWhat(); });
+document.querySelectorAll(".presets .chip").forEach(b => b.addEventListener("click", () => setPreset(b.dataset.p)));
 $("#find-reset").addEventListener("click", () => {
   Object.assign(state.find, DEFAULTS.find); $("#find-outcome").value = state.find.outcome; setView("s-find", "chart"); renderFindings();
 });
