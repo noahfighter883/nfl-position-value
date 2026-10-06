@@ -310,6 +310,7 @@ body.intro .chart svg .dot-sig, body.intro .chart svg .dot-ns, body.intro .chart
         <span class="k">Click a row to open that team in the team explorer.</span>
       </div>
     </div>
+    <p class="note"><b>How &ldquo;spending predicts&rdquo; is calculated.</b> It is the fitted value from the same model as the effects chart: that outcome regressed on every position&rsquo;s starter cap share plus dead money, with a separate baseline for each season. So the prediction is that season&rsquo;s league-average result, adjusted up or down for how this team split its cap. The gap is actual minus predicted. The model was fit on these same team-seasons, so the gaps are slightly smaller than they would be for a truly new season.</p>
     <p class="note">Spending explains only about 16% of results, so most of these gaps are not about money: schedule, coaching, depth and luck all sit here, and so do injuries. The injury figures are context (the planned starting QB is the highest-cap QB on the roster; injured-reserve data starts in 2016), not an adjustment.</p>
   </section>
 
@@ -340,6 +341,7 @@ body.intro .chart svg .dot-sig, body.intro .chart svg .dot-ns, body.intro .chart
       <div><dt>Significant under k of 6 starter rules</dt><dd>&ldquo;Starter&rdquo; was defined six different ways. The number counts how many definitions keep the result significant.</dd></div>
       <div><dt>Overall finish</dt><dd>Where a team ended the season among the 32 teams: 1 is the champion and 32 is the worst. It is read from the league&rsquo;s first-round draft order (each team&rsquo;s original, pre-trade slot, flipped), so it includes playoff results. Estimates are shown as places gained, so positive is better.</dd></div>
       <div><dt>Dead money &amp; unspent cap</dt><dd>The contract data has no dead cap, so it is recovered as the league&rsquo;s base salary cap minus every tracked cap hit. That gap is mostly dead money (a released player&rsquo;s leftover bonus) but also includes cap room a team left unused, so the two cannot be told apart. It is shown as a share of tracked cap and compared against bench money, like the positions.</dd></div>
+      <div><dt>Spending predicts</dt><dd>What the model expects a team to achieve in a season, given how it split its cap. It starts from that season&rsquo;s league average and adjusts for each position&rsquo;s starter share and dead money. The gap between actual and predicted is what spending does not explain.</dd></div>
       <div><dt>Placebo check</dt><dd>Spending on offensive positions should not move the defense, and spending on defensive positions should not move the offense. A position that does fails the check, and its result is probably noise.</dd></div>
     </dl>
     </details>
