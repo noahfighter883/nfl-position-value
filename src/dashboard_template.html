@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>NFL Position Value</title>
+<meta name="description" content="Which NFL positions are worth paying for? 13 seasons of salary-cap data, 416 team-seasons, and an interactive look at what quarterback, line and defensive spending buy.">
+<meta name="theme-color" content="#f3f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e110f" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%230b6b3a'/%3E%3Crect x='6' y='17' width='5' height='9' fill='%23fff'/%3E%3Crect x='13.5' y='7' width='5' height='19' fill='%23fff'/%3E%3Crect x='21' y='12' width='5' height='14' fill='%23fff'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Which NFL positions are worth paying for?">
+<meta property="og:description" content="Which NFL positions are worth paying for? 13 seasons of salary-cap data, 416 team-seasons, and an interactive look at what quarterback, line and defensive spending buy.">
+<meta property="og:url" content="https://nfl-position-value.vercel.app/">
+<meta property="og:image" content="https://nfl-position-value.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Estimated effect of cap spending by position on point differential: quarterback is the clearest gain, dead money the clearest loss.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
@@ -20,7 +33,7 @@
   --s1: #2a78d6;    --s2: #eb6834;     --neutral: #efede5;
   --acc: #0b6b3a;   --wash: rgba(11,107,58,.10);
   --turf-line: rgba(11,107,58,.55);
-  --edge: #111111;  --lift: #111111;
+  --edge: #111111;  --lift: #111111;  --ctrl: #8a8678;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
@@ -34,7 +47,7 @@
     --s1: #3987e5; --s2: #d95926; --neutral: #3a403b;
     --acc: #4fbf86; --wash: rgba(79,191,134,.13);
     --turf-line: rgba(79,191,134,.45);
-    --edge: #3a403b; --lift: rgba(79,191,134,.30);
+    --edge: #3a403b; --lift: rgba(79,191,134,.30); --ctrl: #6f776f;
   }
 }
 :root[data-theme="dark"] {
@@ -45,9 +58,9 @@
   --s1: #3987e5; --s2: #d95926; --neutral: #3a403b;
   --acc: #4fbf86; --wash: rgba(79,191,134,.13);
   --turf-line: rgba(79,191,134,.45);
-  --edge: #3a403b; --lift: rgba(79,191,134,.30);
+  --edge: #3a403b; --lift: rgba(79,191,134,.30); --ctrl: #6f776f;
 }
-.theme { position: absolute; top: 18px; right: 16px; min-height: 38px; padding: 0 12px; border: 1px solid var(--axis); border-radius: 2px; background: var(--surface); color: var(--ink2); font: 500 .8rem/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.theme { position: absolute; top: 18px; right: 16px; min-height: 38px; padding: 0 12px; border: 1px solid var(--ctrl); border-radius: 2px; background: var(--surface); color: var(--ink2); font: 500 .8rem/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
 .theme:hover { background: var(--wash); color: var(--ink); }
 .wrap { position: relative; }
 @media (max-width: 640px) { header { padding-top: 48px; } }
@@ -56,11 +69,13 @@
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 12px; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.55 var(--sans); }
 ::selection { background: var(--acc); color: var(--page); }
-.wrap { border-top: 10px solid var(--acc); max-width: 1080px; margin-inline: auto; padding-inline: 16px; padding-block: 36px 64px; }
+body::before { content: ""; display: block; height: 10px; background: var(--acc); }
+.wrap { max-width: 1080px; margin-inline: auto; padding-inline: 16px; padding-block: 36px 64px; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 h1 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(2.5rem, 7.2vw, 4.4rem); line-height: .98;
   letter-spacing: .005em; margin: 0 0 18px; max-width: 15em; text-wrap: balance; }
-h2 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: 1.85rem; line-height: 1.05; letter-spacing: .04em; margin: 0 0 6px; padding-left: 12px; border-left: 6px solid var(--acc); }
+h2 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: 1.85rem; line-height: 1.05; letter-spacing: .04em; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+h2::before { content: ""; flex: none; width: 12px; height: 12px; background: var(--acc); }
 h2:focus { outline: none; }
 p { margin: 0; }
 .lead { font-size: clamp(1.1rem, 2.2vw, 1.3rem); line-height: 1.45; max-width: 62ch; }
@@ -74,11 +89,12 @@ a { color: var(--acc); text-underline-offset: 3px; }
 .field { display: grid; gap: 3px; min-width: 0; }
 .field label { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 select, button { font: inherit; color: var(--ink); }
-select { min-height: 38px; padding: 0 28px 0 10px; border: 1px solid var(--axis); border-radius: 2px; background: var(--surface); max-width: 100%; }
+select { min-height: 38px; padding: 0 28px 0 10px; border: 1px solid var(--ctrl); border-radius: 2px; background: var(--surface); max-width: 100%; }
 select:hover { background: var(--wash); }
 button.link { min-height: 38px; padding: 0 10px; border: 0; background: none; color: var(--ink2); cursor: pointer; border-radius: 6px; }
 button.link:hover { background: var(--wash); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+@media (max-width: 560px) { .controls .field { flex: 1 1 calc(50% - 8px); } .controls .field select { width: 100%; } }
 @media (pointer: coarse), (max-width: 560px) {
   select, button.link { min-height: 44px; }
   .seg button { min-height: 44px; min-width: 44px; }
@@ -93,7 +109,7 @@ header + section { margin-top: 36px; }
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6'%3E%3Crect width='1' height='6'/%3E%3C/svg%3E") repeat-x left bottom / 12px 6px; }
 .head p { color: var(--ink2); max-width: 70ch; }
 .card { background: var(--surface); border: 1px solid var(--edge); border-radius: 2px; box-shadow: 4px 4px 0 var(--lift); padding: 14px 14px 10px; min-width: 0; }
-.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden; flex: none; }
+.seg { display: inline-flex; border: 1px solid var(--ctrl); border-radius: 6px; overflow: hidden; flex: none; }
 .seg button { border: 0; background: none; padding: 6px 12px; cursor: pointer; font-size: .875rem; color: var(--ink2); }
 .seg button[aria-pressed="true"] { background: var(--acc); color: var(--page); font-weight: 600; }
 .chart { width: 100%; min-width: 0; }
@@ -167,13 +183,27 @@ thead th { position: sticky; top: 0; background: var(--surface); color: var(--mu
   .ledger tr { padding: 12px 0; border-bottom: 1px solid var(--grid); }
   .ledger th, .ledger td { border: 0; padding: 2px 0; }
 }
+.more > summary { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; cursor: pointer; list-style: none; padding-bottom: 10px; border-bottom: 1px solid var(--turf-line); margin-bottom: 14px; }
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary h2 { margin: 0; }
+.more > summary::after { content: "+"; margin-left: auto; font: 600 1.6rem/1 var(--display); color: var(--acc); }
+.more[open] > summary::after { content: "\2212"; }
+.more .hint { color: var(--muted); font-size: .85rem; }
 .method { color: var(--ink2); font-size: .95rem; max-width: 80ch; display: grid; gap: 10px; }
 .method b { color: var(--ink); font-weight: 600; }
 .glossary { display: grid; gap: 10px; margin: 18px 0 0; max-width: 80ch; font-size: .95rem; }
 .glossary dt { font-weight: 600; color: var(--ink); }
 .glossary dd { margin: 2px 0 0; color: var(--ink2); }
 footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70ch; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+/* motion: bars rise and dots fade in once on load; the theme eases between colors. Nothing replays on later interaction. */
+body, .card, select, .seg, .theme { transition: background-color .25s ease, color .25s ease, border-color .25s ease; }
+.col-pos, .col-neg { transform-box: fill-box; }
+.col-pos { transform-origin: 50% 100%; } .col-neg { transform-origin: 50% 0; }
+@keyframes rise { from { transform: scaleY(0); } }
+@keyframes fade { from { opacity: 0; } }
+body.intro .col-pos, body.intro .col-neg { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+body.intro .chart svg .dot-sig, body.intro .chart svg .dot-ns, body.intro .chart svg .whisker, body.intro .chart svg circle.pt { animation: fade .8s ease .15s both; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
@@ -189,7 +219,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70
     <div class="head">
       <div>
         <h2 id="h-find">What the money buys</h2>
-        <p>Estimated effect of moving one point of cap share (about $1.6M for an average team) from bench depth into this position&rsquo;s starters, holding every other position fixed. Uses all seasons. The last row, dead money and unspent cap, is cap room not tied to any tracked player.</p>
+        <p>What one more point of cap share (about $1.6M) buys when moved from bench depth into a position&rsquo;s starters. The last row, dead money and unspent cap, is cap not tied to any tracked player.</p>
       </div>
       <div class="seg" role="group" aria-label="Findings view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
     </div>
@@ -274,7 +304,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70
   </section>
 
   <section aria-labelledby="h-method">
-    <div class="head"><div><h2 id="h-method" tabindex="-1">How to read this</h2></div></div>
+    <details id="s-method" class="more"><summary><h2 id="h-method" tabindex="-1">How to read this</h2><span class="hint">Method and glossary</span></summary>
     <div class="method">
       <p><b>Data.</b> Per-player cap hits (Over the Cap), snap counts, results and EPA/play from nflverse, 2013&ndash;2025. The cap data covers part of the official cap, so everything is expressed as shares.</p>
       <p><b>Starter</b> means the top-N players at a position by snaps (QB1, RB1, WR3, TE1, OL5, DL2, EDGE2, LB2, CB3, S2). Everyone else is bench.</p>
@@ -290,6 +320,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70
       <div><dt>Dead money &amp; unspent cap</dt><dd>The contract data has no dead cap, so it is recovered as the league&rsquo;s base salary cap minus every tracked cap hit. That gap is mostly dead money (a released player&rsquo;s leftover bonus) but also includes cap room a team left unused, so the two cannot be told apart. It is shown as a share of tracked cap and compared against bench money, like the positions.</dd></div>
       <div><dt>Placebo check</dt><dd>Spending on offensive positions should not move the defense, and spending on defensive positions should not move the offense. A position that does fails the check, and its result is probably noise.</dd></div>
     </dl>
+    </details>
   </section>
   <footer>Data: nflverse, including Over the Cap contract data, 2013&ndash;2025. Every number on this page comes from the same models as the project notebook.</footer>
 </div>
@@ -315,13 +346,14 @@ const SHARE_OF = p => p === "DEAD" ? "Dead money and unspent cap, as a share of 
 const NOUN = p => p === "DEAD" ? "dead money and unspent cap" : `${p} starter`;
 const UNITS = [["Offense", ["QB", "RB", "WR", "TE", "OL"]], ["Defense", ["DL", "EDGE", "LB", "CB", "S"]], ["Off the field", ["DEAD"]]];
 const NOTE = {
-  pd: "Quarterback is the clearest positional payoff, and dead money and unspent cap is the strongest negative marker. Tight end has the largest estimate and is stable across starter definitions, but it fails the offense-versus-defense test (switch to Defense EPA): stability is not evidence against noise.",
-  off: "QB, WR and OL help the offense. Defensive positions show nothing here, as they should. Dead money and unspent cap goes with a worse offense too.",
-  fin: "Overall finish is where the team ended up among the 32 teams, so it includes playoff results. Estimates are places gained in the standings, so positive is better. QB again leads the reliable positions, dead money and unspent cap again goes with fewer places; tight end again has the largest estimate and again fails the placebo check.",
-  dfn: "EDGE and CB help the defense, and interior DL points the same way with less certainty. Dead money and unspent cap goes with a worse defense as well, so it looks like a team-wide signal, not a position effect. Only the same season counts (last season’s does not predict this one), so it may be as much a result of a bad year as a cause. Tight end should show nothing here, but it shows a significant effect, so its other results are probably noise.",
+  pd: "Quarterback is the clearest positional payoff; dead money and unspent cap is the strongest negative marker. Tight end has the largest estimate but fails the offense-versus-defense test (switch to Defense EPA), so treat it as noise.",
+  off: "QB, WR and OL help the offense. Defensive positions show nothing, as they should. Dead money goes with a worse offense too.",
+  fin: "Finish is where a team ended among the 32 teams, so it includes playoffs; estimates are places gained. QB leads again, dead money again goes with fewer places, and tight end again fails the placebo check.",
+  dfn: "EDGE and CB help the defense; interior DL points the same way with less certainty. Dead money goes with a worse defense too, so it looks like a team-wide signal, and since only the same season counts it may be as much a result of a bad year as a cause. Tight end should show nothing here but doesn't, so its other results are probably noise.",
 };
 const SEASONS = { from: DATA.seasons[0], to: DATA.seasons[1] };
-const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", outcome: "pd", ...SEASONS } };
+const PHONE = matchMedia("(max-width: 560px)").matches;   // on a phone the team explorer opens on the last 8 seasons so each column is big enough to tap
+const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", outcome: "pd", ...SEASONS, from: PHONE ? SEASONS.to - 7 : SEASONS.from } };
 // each section owns its controls: find = effects chart, exp = position explorer, tm = team explorer
 const state = { find: { ...DEFAULTS.find }, exp: { ...DEFAULTS.exp }, tm: { ...DEFAULTS.tm }, view: { find: "chart", exp: "chart", team: "chart" }, pinned: null, hover: null };
 
@@ -598,8 +630,8 @@ function renderTeam() {
   }
   const insight = teamInsight(rows, o), setReadout = t => { readout.textContent = t || insight; };
   setReadout();
-  const n = rows.length, avail = width(host), narrow = avail < 520, mL = narrow ? 34 : 50, mR = 8, band = Math.max(20, (avail - mL - mR) / n), W = Math.max(avail, mL + mR + band * n);
-  const topH = 150, gap = 40, cellH = 22, hmH = cellH * POS.length, mT = 26, mB = 28, H = mT + topH + gap + hmH + mB;
+  const n = rows.length, avail = width(host), narrow = avail < 520, mL = narrow ? 52 : 50, mR = 8, band = Math.max(narrow ? 30 : 20, (avail - mL - mR) / n), W = Math.max(avail, mL + mR + band * n);
+  const topH = narrow ? 130 : 150, gap = 40, cellH = narrow ? 28 : 22, hmH = cellH * POS.length, mT = 26, mB = 28, H = mT + topH + gap + hmH + mB;
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, class: "kbd-svg", tabindex: 0, role: "group",
     "aria-label": `${DATA.teams[tm]}: ${OUT[o].lc} by season and position spending versus league average. Use the arrow keys to move between seasons and positions; the readout below describes the selected cell. Table view has all the numbers.` });
   // bar value v: the outcome itself, or for finish the places above the middle of the pack (16.5 - finish), so a better finish rises
@@ -722,6 +754,8 @@ for (const id in seg) {
   btn.addEventListener("click", () => { const next = current() === "dark" ? "light" : "dark"; root.setAttribute("data-theme", next); try { localStorage.setItem("theme", next); } catch (e) {} paint(); say(`${next === "dark" ? "Dark" : "Light"} theme.`); });
   mq.addEventListener("change", paint); paint();
 })();
+document.querySelectorAll('a[href="#h-method"]').forEach(a => a.addEventListener("click", () => { $("#s-method").open = true; }));
+document.body.classList.add("intro"); setTimeout(() => document.body.classList.remove("intro"), 1400);
 let lastW = 0;
 new ResizeObserver(() => { const w = $(".wrap").clientWidth; if (Math.abs(w - lastW) > 2) { lastW = w; renderAll(); } }).observe($(".wrap"));
 renderAll();
