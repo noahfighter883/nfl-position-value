@@ -236,6 +236,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70
     </div>
     <div class="controls" role="group" aria-label="Controls for the team explorer">
       <div class="field"><label for="team-team">Team</label><select id="team-team"></select></div>
+      <div class="field"><label for="team-outcome">Bars show</label><select id="team-outcome"></select></div>
       <div class="field"><label for="team-from">From</label><select id="team-from"></select></div>
       <div class="field"><label for="team-to">To</label><select id="team-to"></select></div>
       <button class="link" id="team-reset" type="button">Reset</button>
@@ -244,8 +245,8 @@ footer { margin-top: 40px; color: var(--muted); font-size: .85rem; max-width: 70
       <div class="chart scroll-x" id="team-chart"></div>
       <p class="readout" id="team-readout" aria-live="polite"></p>
       <div class="keyrow" id="team-key">
-        <span class="k"><span class="sw" style="background:var(--s1)"></span>Above 0 / spending above league average</span>
-        <span class="k"><span class="sw" style="background:var(--s2)"></span>Below 0 / spending below league average</span>
+        <span class="k"><span class="sw" style="background:var(--s1)"></span>Bar above 0 (or above mid-pack for finish) / spending above league average</span>
+        <span class="k"><span class="sw" style="background:var(--s2)"></span>Bar below 0 (or below mid-pack) / spending below league average</span>
         <span class="k">Shade is scaled to how much that position&rsquo;s share varies across teams. Tap or use the arrow keys to read a cell.</span>
       </div>
     </div>
@@ -311,7 +312,7 @@ const NOTE = {
   dfn: "EDGE and CB help the defense, and interior DL points the same way with less certainty. Dead money and unspent cap goes with a worse defense as well, so it looks like a team-wide signal, not a position effect. Only the same season counts (last season’s does not predict this one), so it may be as much a result of a bad year as a cause. Tight end should show nothing here, but it shows a significant effect, so its other results are probably noise.",
 };
 const SEASONS = { from: DATA.seasons[0], to: DATA.seasons[1] };
-const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", ...SEASONS } };
+const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", outcome: "pd", ...SEASONS } };
 // each section owns its controls: find = effects chart, exp = position explorer, tm = team explorer
 const state = { find: { ...DEFAULTS.find }, exp: { ...DEFAULTS.exp }, tm: { ...DEFAULTS.tm }, view: { find: "chart", exp: "chart", team: "chart" }, pinned: null, hover: null };
 
@@ -568,48 +569,54 @@ function renderExplorer() {
 }
 
 /* ---------- 3. team explorer ---------- */
-function teamInsight(rows) {
+function teamInsight(rows, o) {
   if (!rows.length) return "";
-  const best = rows.reduce((a, r) => r.pd > a.pd ? r : a), worst = rows.reduce((a, r) => r.pd < a.pd ? r : a);
+  const good = r => OUT[o].invert ? -r[o] : r[o];   // higher = better for every outcome
+  const best = rows.reduce((a, r) => good(r) > good(a) ? r : a), worst = rows.reduce((a, r) => good(r) < good(a) ? r : a);
   let tilt = null;
   rows.forEach(r => POS.forEach((p, i) => { const z = Math.abs((r.st[i] - lgMean(r.s, i)) / sd[i]); if (!tilt || z > tilt.z) tilt = { z, p, r, i }; }));
-  const first = rows.length === 1 ? `${rows[0].s}: ${fmt(rows[0].pd, 1)} pts/game.` : `Best season ${best.s} (${fmt(best.pd, 1)} pts/game), worst ${worst.s} (${fmt(worst.pd, 1)}).`;
+  const first = rows.length === 1 ? `${rows[0].s}: ${valText(rows[0], o)}.` : `Best season ${best.s} (${valText(best, o).replace("Finished ", "finished ")}), worst ${worst.s} (${valText(worst, o).replace("Finished ", "finished ")}).`;
   return `${first} Biggest spending tilt: ${POSNAME[tilt.p]} in ${tilt.r.s}, ${tilt.r.st[tilt.i].toFixed(1)}% of cap against a league average of ${lgMean(tilt.r.s, tilt.i).toFixed(1)}%.`;
 }
 function renderTeam() {
   const host = $("#team-chart"), readout = $("#team-readout"); host.replaceChildren();
-  const tm = state.tm.team, rows = ROWS.filter(r => r.t === tm && r.s >= state.tm.from && r.s <= state.tm.to).sort((a, b) => a.s - b.s);
-  $("#team-sub").textContent = `${DATA.teams[tm]}: results by season, and where its starter money sat relative to the league average that year. The bars always show point differential.`;
+  const tm = state.tm.team, o = state.tm.outcome, inv = !!OUT[o].invert, rows = ROWS.filter(r => r.t === tm && r.s >= state.tm.from && r.s <= state.tm.to).sort((a, b) => a.s - b.s);
+  $("#team-sub").textContent = `${DATA.teams[tm]}: results by season, and where its starter money sat relative to the league average that year. The bars show ${OUT[state.tm.outcome].lc}; the shaded grid below does not change.`;
   $("#team-key").hidden = state.view.team === "table"; readout.hidden = state.view.team === "table";
   if (state.view.team === "table") {
     host.appendChild(table(["Season", "Pt diff/g", "Win %", "Finish", ...POS.map(p => POSLBL(p) + " %")], rows.map(r => [r.s, fmt(r.pd, 1), r.w.toFixed(3), r.fin, ...r.st.map(v => v.toFixed(1))])));
     return;
   }
-  const insight = teamInsight(rows), setReadout = t => { readout.textContent = t || insight; };
+  const insight = teamInsight(rows, o), setReadout = t => { readout.textContent = t || insight; };
   setReadout();
   const n = rows.length, avail = width(host), narrow = avail < 520, mL = narrow ? 34 : 50, mR = 8, band = Math.max(20, (avail - mL - mR) / n), W = Math.max(avail, mL + mR + band * n);
   const topH = 150, gap = 40, cellH = 22, hmH = cellH * POS.length, mT = 26, mB = 28, H = mT + topH + gap + hmH + mB;
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, class: "kbd-svg", tabindex: 0, role: "group",
-    "aria-label": `${DATA.teams[tm]}: point differential by season and position spending versus league average. Use the arrow keys to move between seasons and positions; the readout below describes the selected cell. Table view has all the numbers.` });
-  const y = linear(-16, 16, mT + topH, mT), bx = i => mL + band * i, y0 = mT + topH + gap;
-  [-15, -10, -5, 0, 5, 10, 15].forEach(t => {
+    "aria-label": `${DATA.teams[tm]}: ${OUT[o].lc} by season and position spending versus league average. Use the arrow keys to move between seasons and positions; the readout below describes the selected cell. Table view has all the numbers.` });
+  // bar value v: the outcome itself, or for finish the places above the middle of the pack (16.5 - finish), so a better finish rises
+  const vOf = r => inv ? 16.5 - r[o] : r[o];
+  const lim = inv ? 16 : o === "pd" ? 16 : Math.max(5, Math.ceil(Math.max(...ROWS.map(r => Math.abs(r[o]))) / 5) * 5);
+  const y = linear(-lim, lim, mT + topH, mT), bx = i => mL + band * i, y0 = mT + topH + gap;
+  const axis = inv ? [[15.5, "1"], [8.5, "8"], [0, "mid"], [-8.5, "25"], [-15.5, "32"]]
+    : (o === "pd" ? [-15, -10, -5, 0, 5, 10, 15] : niceTicks(-lim, lim, 6).ticks).map(t => [t, (o === "pd" ? t % 10 === 0 || t === 0 : true) ? String(t) : ""]);
+  axis.forEach(([t, lab]) => {
     svg.appendChild(s("line", { class: t === 0 ? "axis" : "grid", x1: mL, x2: W - mR, y1: y(t), y2: y(t) }));
-    if (t % 10 === 0 || t === 0) svg.appendChild(s("text", { class: "t-muted", x: mL - 6, y: y(t) + 4, "text-anchor": "end", text: String(t) }));
+    if (lab) svg.appendChild(s("text", { class: "t-muted", x: mL - 6, y: y(t) + 4, "text-anchor": "end", text: lab }));
   });
   const cw = Math.min(24, band - 6);
   const barText = r => `${tm} ${r.s}: ${fmt(r.pd, 1)} pts/game, win % ${r.w.toFixed(3)}, finished ${ord(r.fin)} of 32. Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays.`;
   const cellText = (r, pi) => { const lg = lgMean(r.s, pi), diff = r.st[pi] - lg; return `${tm} ${r.s}, ${POSNAME[POS[pi]]}: ${r.st[pi].toFixed(1)}% of cap ($${r.usd[pi].toFixed(1)}M). League average ${lg.toFixed(1)}% (${fmt(diff, 1)} percentage points).`; };
   rows.forEach((r, i) => {
-    const cx = bx(i) + band / 2, top = y(r.pd), g = s("g", { class: "col" });
-    g.appendChild(s("path", { class: r.pd >= 0 ? "col-pos" : "col-neg", d: barPath(cx - cw / 2, cw, y(0), top, 4) }));
+    const cx = bx(i) + band / 2, top = y(vOf(r)), g = s("g", { class: "col" });
+    g.appendChild(s("path", { class: vOf(r) >= 0 ? "col-pos" : "col-neg", d: barPath(cx - cw / 2, cw, y(0), top, 4) }));
     g.appendChild(s("rect", { x: bx(i), y: mT, width: band, height: topH, fill: "transparent" }));
-    g.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, fmt(r.pd, 1) + " pts/game", [`${tm} ${r.s}`, `Finished ${ord(r.fin)} of 32 (draft slot ${33 - r.fin})`, `Win % ${r.w.toFixed(3)}`, `Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays`]); });
+    g.addEventListener("pointermove", e => { if (e.pointerType !== "touch") showTip(e.clientX, e.clientY, valText(r, o), [`${tm} ${r.s}`, `Point differential ${fmt(r.pd, 1)} pts/game`, `Finished ${ord(r.fin)} of 32 (draft slot ${33 - r.fin})`, `Win % ${r.w.toFixed(3)}`, `Offense EPA ${fmt(r.off, 1)}, defense EPA ${fmt(r.dfn, 1)} per 100 plays`]); });
     g.addEventListener("pointerleave", hideTip);
     g.addEventListener("click", () => { setReadout(barText(r)); sel = { i, row: -1 }; place(); });
     svg.appendChild(g);
     svg.appendChild(s("text", { class: "t-muted", x: cx, y: y0 + hmH + 18, "text-anchor": "middle", text: narrow ? "'" + String(r.s).slice(2) : String(r.s) }));
   });
-  svg.appendChild(s("text", { class: "t-strong", x: mL, y: 14, text: "Point differential per game" }));
+  svg.appendChild(s("text", { class: "t-strong", x: mL, y: 14, text: OUT[o].label + ": " + (inv ? "1 = champion; bars rise for a better finish, from the middle of the pack" : OUT[o].unit.replace(" (higher = better defense)", ", higher = better")) }));
   svg.appendChild(s("text", { class: "t-strong", x: mL, y: y0 - 12, text: narrow ? "Cap share vs. league average" : "Share of cap vs. league average that season" }));
   POS.forEach((p, pi) => {
     svg.appendChild(s("text", { class: "t-ink", x: mL - 6, y: y0 + cellH * pi + cellH / 2 + 4, "text-anchor": "end", text: POSLBL(p) }));
@@ -660,6 +667,7 @@ fill($("#find-outcome"), OUTS, state.find.outcome);
 fill($("#exp-outcome"), OUTS, state.exp.outcome); fill($("#exp-pos"), POS.map(p => [p, POSNAME[p]]), state.exp.pos);
 fill($("#exp-from"), years, state.exp.from); fill($("#exp-to"), years, state.exp.to);
 fill($("#exp-team"), [["", "No team"], ...teams.map(t => [t, DATA.teams[t]])], "");
+fill($("#team-outcome"), OUTS, state.tm.outcome);
 fill($("#team-team"), teams.map(t => [t, DATA.teams[t]]), state.tm.team); fill($("#team-from"), years, state.tm.from); fill($("#team-to"), years, state.tm.to);
 const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); };
 function seasonRange(st, fromSel, toSel, render) {   // keeps from <= to when either changes
@@ -677,6 +685,7 @@ $("#exp-team").addEventListener("change", e => { pinTeam(e.target.value); state.
 $("#exp-pos").addEventListener("change", e => { state.exp.pos = e.target.value; renderExplorer(); renderFindings(); });   // chart 1 shades the open position
 seasonRange(state.exp, "#exp-from", "#exp-to", renderExplorer);
 $("#team-team").addEventListener("change", e => { state.tm.team = e.target.value; renderTeam(); });
+$("#team-outcome").addEventListener("change", e => { state.tm.outcome = e.target.value; renderTeam(); say(`Bars now show ${OUT[state.tm.outcome].lc}.`); });
 seasonRange(state.tm, "#team-from", "#team-to", renderTeam);
 $("#find-reset").addEventListener("click", () => {
   Object.assign(state.find, DEFAULTS.find); $("#find-outcome").value = state.find.outcome; setView("s-find", "chart"); renderFindings();
@@ -688,7 +697,7 @@ $("#exp-reset").addEventListener("click", () => {
 });
 $("#team-reset").addEventListener("click", () => {
   Object.assign(state.tm, DEFAULTS.tm); setView("s-team", "chart");
-  $("#team-team").value = state.tm.team; $("#team-from").value = state.tm.from; $("#team-to").value = state.tm.to; renderTeam();
+  $("#team-team").value = state.tm.team; $("#team-outcome").value = state.tm.outcome; $("#team-from").value = state.tm.from; $("#team-to").value = state.tm.to; renderTeam();
 });
 for (const id in seg) {
   document.querySelectorAll("#" + id + " .seg button").forEach(b => b.addEventListener("click", () => { setView(id, b.dataset.view); seg[id][1](); say(`Showing the ${b.dataset.view} view.`); }));

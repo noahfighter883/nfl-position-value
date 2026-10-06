@@ -75,6 +75,7 @@ I would not read this as dead money costing wins. Last season's dead money does 
 ## How I checked myself
 
 - Reran the key findings under six definitions of "starter".
+- Split the sample at 2019 to see whether a point of cap share means the same thing as the cap grew. The position effects held (QB +0.28 and +0.26 points per game in the two halves); only dead money weakened.
 - Checked that last season's dead money does not predict this season, which kept me from reading it as a cause.
 - Controlled for rookie-scale contracts.
 - Added the offense-versus-defense placebo test, which is what caught the tight end result.
