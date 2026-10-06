@@ -38,7 +38,8 @@ STARTER_RULES = {
 }
 # league-wide base salary cap by season, $M (before each team's carryover and adjustments)
 BASE_CAP = {2013: 123.0, 2014: 133.0, 2015: 143.28, 2016: 155.27, 2017: 167.0, 2018: 177.2, 2019: 188.2,
-            2020: 198.2, 2021: 182.5, 2022: 208.2, 2023: 224.8, 2024: 255.4, 2025: 279.2}
+            2020: 198.2, 2021: 182.5, 2022: 208.2, 2023: 224.8, 2024: 255.4, 2025: 279.2,
+            2026: 301.2}   # 2026 is used only by the dashboard's outlook chart
 OUT = Path(__file__).resolve().parent.parent / "data"
 
 NICKNAME_TO_ABBR = {

@@ -12,16 +12,19 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_data import BASELINE_RULE, STARTER_RULES, assign_roles, share_table  # noqa: E402
+import build_data as bd  # noqa: E402
+from build_data import BASE_CAP, BASELINE_RULE, OFFENSE, STARTER_RULES, assign_roles, share_table  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 POS = ["QB", "RB", "WR", "TE", "OL", "DL", "EDGE", "LB", "CB", "S"]
 DEAD = "DEAD"   # the 11th row: dead money + unspent cap, as a share of tracked cap (not a position)
 ALL = POS + [DEAD]
+CURRENT = 2026   # the season the outlook chart looks at (in progress: cap numbers as of now, starters from snaps so far)
 OUTCOMES = {"pd": "pt_diff_pg", "off": "off", "dfn": "dfn", "fin": "finish"}  # dashboard key -> column
 FLIPPED = {"fin"}  # finish is a rank (1 = best); estimates are shown as places GAINED so positive always means better
 TEAM_NAMES = {
@@ -60,6 +63,69 @@ def joint_fit(d: pd.DataFrame, y: str):
     return smf.ols(f"{y} ~ {rhs} + C(season)", d).fit(cov_type="cluster", cov_kwds={"groups": d["team"]})
 
 
+def load_current() -> tuple[pd.DataFrame, int]:
+    """Cap + snaps for the in-progress season, built the same way as player_season.parquet (only the columns the roles need)."""
+    first, last = bd.FIRST, bd.LAST
+    bd.FIRST = bd.LAST = CURRENT
+    try:
+        cap, snaps = bd.load_cap(), bd.load_snap_share()
+        weeks = int(bd.nfl.load_snap_counts([CURRENT]).to_pandas().query("game_type == 'REG'")["week"].max())
+    finally:
+        bd.FIRST, bd.LAST = first, last
+    p = cap.merge(snaps, on=["gsis_id", "season"], how="left")
+    cols = ["offense_snaps", "defense_snaps", "off_share", "def_share"]
+    p[cols] = p[cols].fillna(0)
+    p["unit_share"] = np.where(p["pos_group"].isin(OFFENSE), p["off_share"], np.where(p["pos_group"].isin(bd.DEFENSE), p["def_share"], np.nan))
+    p["unit_snaps"] = np.where(p["pos_group"].isin(OFFENSE), p["offense_snaps"], p["defense_snaps"])
+    p["snap_rank"] = p.groupby(["season", "team", "pos_group"])["unit_snaps"].rank(method="first", ascending=False)
+    return p, weeks
+
+
+def outlook(d_train: pd.DataFrame) -> dict | None:
+    """What each team's current cap split predicts for the in-progress season, relative to the league-average team that season.
+
+    Season effects are unknown for a new year, so the prediction is beta . (team's shares - league mean shares): the same
+    deviation-from-average a season fixed effect would produce. Two models: all positions + dead money, and QB + dead money only
+    (which predicted best on held-out seasons).
+    """
+    cur, weeks = load_current()
+    if cur.empty:
+        return None
+    cur["role"] = assign_roles(cur, STARTER_RULES[BASELINE_RULE])
+    w = share_table(cur)
+    for pos in POS:
+        w[f"{pos}_st"] = w[f"{pos}_starter_share"] * 100
+    w["DEAD_pp"] = (BASE_CAP[CURRENT] - w["tracked_cap_m"]) / w["tracked_cap_m"] * 100
+    w["ST_pct"] = w["ST_all_share"] * 100
+    terms = [term_of(q) for q in ALL] + ["ST_pct"]   # the 12th term (special teams) is in the model but not shown as a row
+    raw = w[terms].to_numpy()
+    # never extrapolate: cap each input at the range the model was fit on (a team with far more dead money than any past team is flagged, not extrapolated)
+    lo, hi = d_train[terms].min().to_numpy(), d_train[terms].max().to_numpy()
+    x = np.clip(raw, lo, hi)
+    capped = {t: [terms[j] for j in range(len(terms)) if raw[i, j] != x[i, j]] for i, t in enumerate(w["team"]) if (raw[i] != x[i]).any()}
+    MODELS = {"full": terms, "qb": ["QB_st", "DEAD_pp"]}   # full = all positions + dead money + special teams
+    out = {"season": CURRENT, "weeks": weeks, "asof": pd.Timestamp.today().strftime("%B %-d, %Y"), "teams": list(w["team"]),
+           "x": [[round(float(v), 2) for v in row] for row in x], "raw": [[round(float(v), 1) for v in row] for row in raw],
+           "capped": {t: [q.replace("_st", "").replace("_pp", "") for q in qs] for t, qs in capped.items()}, "usd": [round(float(v), 1) for v in w["tracked_cap_m"]],
+           "models": {}}
+    for mk, mterms in MODELS.items():
+        out["models"][mk] = {}
+        for key, col in OUTCOMES.items():
+            rhs = " + ".join(mterms)
+            m = smf.ols(f"{col} ~ {rhs} + C(season)", d_train).fit(cov_type="cluster", cov_kwds={"groups": d_train["team"]})
+            sign = -1 if key in FLIPPED else 1
+            coef = [sign * float(m.params[t]) if t in mterms else 0.0 for t in terms]
+            V = m.cov_params()
+            cov = [[float(V.loc[a, b]) if (a in mterms and b in mterms) else 0.0 for b in terms] for a in terms]
+            out["models"][mk][key] = {"coef": [round(c, 4) for c in coef], "cov": [[round(v, 6) for v in r] for r in cov],
+                                      "rsd": round(float(np.sqrt(m.mse_resid)), 2)}
+    return out
+
+
+def term_of(pos: str) -> str:
+    return "DEAD_pp" if pos == DEAD else f"{pos}_st"
+
+
 def main() -> None:
     ts = pd.read_parquet(ROOT / "data" / "team_season.parquet")
     ps = pd.read_parquet(ROOT / "data" / "player_season.parquet")
@@ -84,6 +150,7 @@ def main() -> None:
                                    "hi": max(sign * ci.loc[term(pos), 0], sign * ci.loc[term(pos), 1]),
                                    "p": m.pvalues[term(pos)]} for pos in ALL}
                 base[key]["_r2"] = m.rsquared
+                d_base = d
                 resid[key] = pd.Series(sign * m.resid.values, index=pd.MultiIndex.from_frame(d[["season", "team"]]))
 
     findings = {key: [{"pos": pos, **{k: round(float(v), 4) for k, v in base[key][pos].items()}, "robust": sig_count[key][pos]}
@@ -105,7 +172,7 @@ def main() -> None:
 
     data = {"pos": ALL, "teams": TEAM_NAMES, "rows": rows, "findings": findings,
             "r2": {k: round(float(base[k]["_r2"]), 3) for k in OUTCOMES},
-            "seasons": [int(ts.season.min()), int(ts.season.max())]}
+            "seasons": [int(ts.season.min()), int(ts.season.max())], "fc": outlook(d_base)}
 
     html = (Path(__file__).resolve().parent / "dashboard_template.html").read_text()
     assert "__DATA__" in html

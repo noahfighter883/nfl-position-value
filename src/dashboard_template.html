@@ -189,6 +189,8 @@ thead th { position: sticky; top: 0; background: var(--surface); color: var(--mu
 .more > summary::after { content: "+"; margin-left: auto; font: 600 1.6rem/1 var(--display); color: var(--acc); }
 .more[open] > summary::after { content: "\2212"; }
 .more .hint { color: var(--muted); font-size: .85rem; }
+.sw.hollow { background: none; border: 2px solid var(--s1); } .sw.band-sw { background: var(--neutral); }
+.miss-band { fill: var(--neutral); opacity: .7; }
 .gap-pos { fill: var(--s1); } .gap-neg { fill: var(--s2); }
 .method { color: var(--ink2); font-size: .95rem; max-width: 80ch; display: grid; gap: 10px; }
 .method b { color: var(--ink); font-weight: 600; }
@@ -314,6 +316,28 @@ body.intro .chart svg .dot-sig, body.intro .chart svg .dot-ns, body.intro .chart
     <p class="note">Spending explains only about 16% of results, so most of these gaps are not about money: schedule, coaching, depth and luck all sit here, and so do injuries. The injury figures are context (the planned starting QB is the highest-cap QB on the roster; injured-reserve data starts in 2016), not an adjustment.</p>
   </section>
 
+  <section id="s-out" aria-labelledby="h-out" hidden>
+    <div class="head">
+      <div><h2 id="h-out" tabindex="-1">2026 outlook</h2><p id="out-sub"></p></div>
+      <div class="seg" role="group" aria-label="Outlook view"><button type="button" data-view="chart" aria-pressed="true">Chart</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
+    </div>
+    <div class="controls" role="group" aria-label="Controls for the 2026 outlook">
+      <div class="field"><label for="out-outcome">Outcome</label><select id="out-outcome"></select></div>
+      <div class="field"><label for="out-model">Model</label><select id="out-model"></select></div>
+      <button class="link" id="out-reset" type="button">Reset</button>
+    </div>
+    <div class="card">
+      <div class="chart" id="out-chart"></div>
+      <p class="readout" id="out-readout"></p>
+      <div class="keyrow" id="out-key">
+        <span class="k"><span class="sw" style="background:var(--s1)"></span>Interval excludes zero</span>
+        <span class="k"><span class="sw hollow"></span>Interval includes zero</span>
+        <span class="k"><span class="sw band-sw"></span>Typical miss for one team in one season</span>
+      </div>
+    </div>
+    <p class="note" id="out-note"></p>
+  </section>
+
   <section aria-labelledby="h-beyond">
     <div class="head"><div><h2 id="h-beyond">Beyond the model: injuries and depth</h2><p>From the notebook (sections 9 to 13). Bench spending looked wasteful at first; most of it is injury cost.</p></div></div>
     <table class="ledger">
@@ -377,9 +401,9 @@ const NOTE = {
 };
 const SEASONS = { from: DATA.seasons[0], to: DATA.seasons[1] };
 const PHONE = matchMedia("(max-width: 560px)").matches;   // on a phone the team explorer opens on the last 8 seasons so each column is big enough to tap
-const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", outcome: "pd", ...SEASONS, from: PHONE ? SEASONS.to - 7 : SEASONS.from }, pf: { outcome: "pd" } };
+const DEFAULTS = { find: { outcome: "pd" }, exp: { outcome: "pd", pos: "QB", ...SEASONS }, tm: { team: "KC", outcome: "pd", ...SEASONS, from: PHONE ? SEASONS.to - 7 : SEASONS.from }, pf: { outcome: "pd" }, out: { outcome: "pd", model: "full" } };
 // each section owns its controls: find = effects chart, exp = position explorer, tm = team explorer
-const state = { find: { ...DEFAULTS.find }, exp: { ...DEFAULTS.exp }, tm: { ...DEFAULTS.tm }, pf: { ...DEFAULTS.pf }, view: { find: "chart", exp: "chart", team: "chart", perf: "chart" }, pinned: null, hover: null };
+const state = { find: { ...DEFAULTS.find }, exp: { ...DEFAULTS.exp }, tm: { ...DEFAULTS.tm }, pf: { ...DEFAULTS.pf }, out: { ...DEFAULTS.out }, view: { find: "chart", exp: "chart", team: "chart", perf: "chart", out: "chart" }, pinned: null, hover: null };
 
 /* ---------- helpers ---------- */
 function s(tag, attrs, kids) {
@@ -724,6 +748,14 @@ function renderTeam() {
   host.appendChild(svg);
 }
 
+/* ---------- shared: open a team in the team explorer ---------- */
+function openTeam(t, o, season) {
+  state.tm.team = t; state.tm.outcome = o; $("#team-team").value = t; $("#team-outcome").value = o;
+  if (season && (season < state.tm.from || season > state.tm.to)) { state.tm.from = SEASONS.from; state.tm.to = SEASONS.to; $("#team-from").value = SEASONS.from; $("#team-to").value = SEASONS.to; }
+  renderTeam(); $("#s-team").scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" }); $("#h-team").focus({ preventScroll: true });
+  say(`Opened ${DATA.teams[t]} in the team explorer.`);
+}
+
 /* ---------- 4. over- and under-performers ---------- */
 function renderPerf() {
   const host = $("#perf-chart"), readout = $("#perf-readout"); host.replaceChildren();
@@ -739,12 +771,6 @@ function renderPerf() {
   const withQb = rs => rs.filter(d => d.r.qi != null), hit = rs => withQb(rs).filter(d => d.r.qi >= 4).length;
   const base = withQb(all.map(d => d)).length ? Math.round(100 * hit(all) / withQb(all).length) : 0;
   readout.textContent = `Of the ${withQb(under).length} furthest below their spending since 2016, ${hit(under)} had their planned starting QB out 4 or more weeks (${base}% of all team-seasons did). Of the ${withQb(over).length} furthest above, ${hit(over)} did.`;
-  const openTeam = r => {
-    state.tm.team = r.t; state.tm.outcome = o; $("#team-team").value = r.t; $("#team-outcome").value = o;
-    if (r.s < state.tm.from || r.s > state.tm.to) { state.tm.from = SEASONS.from; state.tm.to = SEASONS.to; $("#team-from").value = SEASONS.from; $("#team-to").value = SEASONS.to; }
-    renderTeam(); $("#s-team").scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" }); $("#h-team").focus({ preventScroll: true });
-    say(`Opened ${DATA.teams[r.t]} in the team explorer.`);
-  };
   if (state.view.perf === "table") {
     readout.hidden = false;
     const line = (grp, d) => [grp, d.r.t, d.r.s, actTxt(d.r), predTxt(d.pred), fmt(d.gap, 1), d.r.qi == null ? "n/a" : d.r.qi, d.r.ir == null ? "n/a" : d.r.ir.toFixed(0)];
@@ -779,10 +805,66 @@ function renderPerf() {
       hitEl.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, gapTxt(d.gap), rows()));
       hitEl.addEventListener("focus", () => { const b = hitEl.getBoundingClientRect(); showTip(b.left + 90, b.top, gapTxt(d.gap), rows()); });
       hitEl.addEventListener("blur", hideTip); hitEl.addEventListener("pointerleave", hideTip);
-      hitEl.addEventListener("click", () => { hideTip(); openTeam(r); });
-      hitEl.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hideTip(); openTeam(r); } });
+      hitEl.addEventListener("click", () => { hideTip(); openTeam(r.t, o, r.s); });
+      hitEl.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hideTip(); openTeam(r.t, o, r.s); } });
       svg.appendChild(hitEl);
     });
+  });
+  host.appendChild(svg);
+}
+
+/* ---------- 5. outlook for the season in progress ---------- */
+const FC = DATA.fc, MODEL_NAMES = [["full", "All positions + dead money"], ["qb", "QB + dead money only"]];
+function outlookRows() {
+  const o = state.out.outcome, M = FC.models[state.out.model][o], n = FC.teams.length, k = FC.x[0].length;
+  const mean = Array.from({ length: k }, (_, j) => FC.x.reduce((t, r) => t + r[j], 0) / n);
+  return FC.teams.map((t, i) => {
+    const dl = FC.x[i].map((v, j) => v - mean[j]), contrib = dl.map((v, j) => v * M.coef[j]), pred = contrib.reduce((a, b) => a + b, 0);
+    let vr = 0; dl.forEach((a, p) => dl.forEach((b, q) => { vr += a * b * M.cov[p][q]; }));
+    const se = Math.sqrt(Math.max(vr, 0));
+    return { t, pred, lo: pred - 1.96 * se, hi: pred + 1.96 * se, contrib, capped: FC.capped[t] || [], raw: FC.raw[i], rsd: M.rsd };
+  }).sort((a, b) => b.pred - a.pred);
+}
+function renderOutlook() {
+  const host = $("#out-chart"), readout = $("#out-readout"); host.replaceChildren();
+  const o = state.out.outcome, inv = !!OUT[o].invert, rows = outlookRows(), unit = inv ? "places" : OUT[o].short, rsd = rows[0].rsd;
+  const names = POS.concat("DEAD"), drivers = d => d.contrib.slice(0, 11).map((c, j) => [names[j], c]).filter(a => Math.abs(a[1]) > 0.05).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 2);
+  const drvName = (p, c) => p === "DEAD" ? (c > 0 ? "low dead $" : "high dead $") : p;   // a positive dead-money contribution means LESS dead money than average
+  const drvTxt = d => drivers(d).map(([p, c]) => `${drvName(p, c)} ${fmt(c, 1)}`).join(", ") || "close to average";
+  $("#out-sub").textContent = `What each team's ${FC.season} cap split predicts for ${OUT[o].lc}, compared with the average team this season. Cap as of ${FC.asof}; starters are each team's top players by snaps through week ${FC.weeks}.`;
+  $("#out-key").hidden = state.view.out === "table";
+  readout.textContent = `The predictions span ${fmt(rows[rows.length - 1].pred, 1)} to ${fmt(rows[0].pred, 1)} ${unit}, while a typical team misses its prediction by about ${rsd.toFixed(1)}. Spending carries a little information, not much.`;
+  $("#out-note").textContent = `This is the model's association applied to current cap numbers, not a forecast of record: on seasons the model had not seen, it explained roughly 4 to 8% of results. Predictions are relative to the average team; the drivers list how much each position's spending, against average, adds or subtracts. The bars show the uncertainty in the model's estimate, not in the season. Every input is capped at the range of past seasons; flagged teams (*) are outside it. Dead money is estimated as the base cap ($301.2M) minus tracked cap hits, so it also holds any unspent cap, and early-season cap numbers can still change.`;
+  const flag = d => d.capped.length ? "*" : "";
+  if (state.view.out === "table") {
+    host.appendChild(table(["Team", `Predicted (${unit} vs. average)`, "95% low", "95% high", "Biggest drivers", "QB share %", "Dead money & unspent %", "Capped input"],
+      rows.map(d => [d.t, fmt(d.pred, 1), fmt(d.lo, 1), fmt(d.hi, 1), drvTxt(d), d.raw[0].toFixed(1), d.raw[10].toFixed(1), d.capped.join(", ") || ""])));
+    return;
+  }
+  const W = width(host), narrow = W < 560, mL = narrow ? 44 : 150, mR = narrow ? 8 : 190, rowH = narrow ? 24 : 22, mT = 6, mB = 52, H = mT + rows.length * rowH + mB;
+  const lim = Math.max(rsd, ...rows.map(d => Math.max(Math.abs(d.lo), Math.abs(d.hi)))) * 1.05, x = linear(-lim, lim, mL, W - mR), tk = niceTicks(-lim, lim, narrow ? 4 : 6);
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Predicted ${OUT[o].lc} for each team in ${FC.season}, ranked, compared with the average team. Table view has the numbers.` });
+  svg.appendChild(s("rect", { class: "miss-band", x: x(-rsd), y: mT, width: x(rsd) - x(-rsd), height: rows.length * rowH }));
+  tk.ticks.forEach(t => {
+    svg.appendChild(s("line", { class: Math.abs(t) < 1e-9 ? "axis" : "grid", x1: x(t), x2: x(t), y1: mT, y2: H - mB + 6 }));
+    svg.appendChild(s("text", { class: "t-muted", x: x(t), y: H - mB + 22, "text-anchor": "middle", text: tk.dec ? t.toFixed(tk.dec) : String(t) }));
+  });
+  svg.appendChild(s("text", { x: (mL + W - mR) / 2, y: H - 6, "text-anchor": "middle", text: unit + " above (+) or below (−) the average team" }));
+  rows.forEach((d, i) => {
+    const cy = mT + i * rowH + rowH / 2, sig = d.lo > 0 || d.hi < 0;
+    svg.appendChild(s("text", { class: "t-ink", x: 4, y: cy + 4, text: narrow ? d.t + flag(d) : `${DATA.teams[d.t]}${flag(d)}` }));
+    svg.appendChild(s("line", { class: "whisker", x1: x(d.lo), x2: x(d.hi), y1: cy, y2: cy }));
+    svg.appendChild(s("circle", { class: "ring", cx: x(d.pred), cy, r: 7 }));
+    svg.appendChild(s("circle", { class: sig ? "dot-sig" : "dot-ns", cx: x(d.pred), cy, r: sig ? 4.5 : 3.8 }));
+    if (!narrow) svg.appendChild(s("text", { class: "t-muted", x: W - mR + 14, y: cy + 4, text: drvTxt(d) }));
+    const rowsTxt = () => [`95% interval ${fmt(d.lo, 1)} to ${fmt(d.hi, 1)}`, `Biggest drivers: ${drvTxt(d)}`, `QB ${d.raw[0].toFixed(1)}% of cap, dead money & unspent ${d.raw[10].toFixed(1)}%`].concat(d.capped.length ? [`Capped: ${d.capped.join(", ")} is outside the range of past seasons`] : []);
+    const hitEl = s("rect", { class: "hit", x: 0, y: cy - rowH / 2, width: W, height: rowH, tabindex: 0, role: "button", "aria-label": `${DATA.teams[d.t]}: predicted ${fmt(d.pred, 1)} ${unit} versus the average team. ${drvTxt(d)}.${d.capped.length ? " An input is outside the range of past seasons." : ""} Press to open in the team explorer.` });
+    hitEl.addEventListener("pointermove", e => showTip(e.clientX, e.clientY, `${d.t}: ${fmt(d.pred, 1)} ${unit}`, rowsTxt()));
+    hitEl.addEventListener("focus", () => { const b = hitEl.getBoundingClientRect(); showTip(b.left + 90, b.top, `${d.t}: ${fmt(d.pred, 1)} ${unit}`, rowsTxt()); });
+    hitEl.addEventListener("blur", hideTip); hitEl.addEventListener("pointerleave", hideTip);
+    hitEl.addEventListener("click", () => { hideTip(); openTeam(d.t, o); });
+    hitEl.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hideTip(); openTeam(d.t, o); } });
+    svg.appendChild(hitEl);
   });
   host.appendChild(svg);
 }
@@ -796,13 +878,14 @@ fill($("#exp-outcome"), OUTS, state.exp.outcome); fill($("#exp-pos"), POS.map(p 
 fill($("#exp-from"), years, state.exp.from); fill($("#exp-to"), years, state.exp.to);
 fill($("#exp-team"), [["", "No team"], ...teams.map(t => [t, DATA.teams[t]])], "");
 fill($("#team-outcome"), OUTS, state.tm.outcome); fill($("#perf-outcome"), OUTS, state.pf.outcome);
+if (FC) { $("#s-out").hidden = false; fill($("#out-outcome"), OUTS, state.out.outcome); fill($("#out-model"), MODEL_NAMES, state.out.model); }
 fill($("#team-team"), teams.map(t => [t, DATA.teams[t]]), state.tm.team); fill($("#team-from"), years, state.tm.from); fill($("#team-to"), years, state.tm.to);
-const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); renderPerf(); };
+const renderAll = () => { renderFindings(); renderExplorer(); renderTeam(); renderPerf(); if (FC) renderOutlook(); };
 function seasonRange(st, fromSel, toSel, render) {   // keeps from <= to when either changes
   $(fromSel).addEventListener("change", e => { st.from = +e.target.value; if (st.from > st.to) { st.to = st.from; $(toSel).value = st.to; } render(); });
   $(toSel).addEventListener("change", e => { st.to = +e.target.value; if (st.to < st.from) { st.from = st.to; $(fromSel).value = st.from; } render(); });
 }
-const seg = { "s-find": ["find", renderFindings], "s-exp": ["exp", renderExplorer], "s-team": ["team", renderTeam], "s-perf": ["perf", renderPerf] };
+const seg = { "s-find": ["find", renderFindings], "s-exp": ["exp", renderExplorer], "s-team": ["team", renderTeam], "s-perf": ["perf", renderPerf], "s-out": ["out", () => FC && renderOutlook()] };
 function setView(id, view) {
   state.view[seg[id][0]] = view;
   document.querySelectorAll("#" + id + " .seg button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.view === view)));
@@ -817,6 +900,11 @@ $("#team-outcome").addEventListener("change", e => { state.tm.outcome = e.target
 seasonRange(state.tm, "#team-from", "#team-to", renderTeam);
 $("#perf-outcome").addEventListener("change", e => { state.pf.outcome = e.target.value; renderPerf(); say(`Showing ${OUT[state.pf.outcome].lc}.`); });
 $("#perf-reset").addEventListener("click", () => { Object.assign(state.pf, DEFAULTS.pf); $("#perf-outcome").value = state.pf.outcome; setView("s-perf", "chart"); renderPerf(); });
+if (FC) {
+  $("#out-outcome").addEventListener("change", e => { state.out.outcome = e.target.value; renderOutlook(); say(`Showing ${OUT[state.out.outcome].lc}.`); });
+  $("#out-model").addEventListener("change", e => { state.out.model = e.target.value; renderOutlook(); say(`Model: ${MODEL_NAMES.find(m => m[0] === state.out.model)[1]}.`); });
+  $("#out-reset").addEventListener("click", () => { Object.assign(state.out, DEFAULTS.out); $("#out-outcome").value = state.out.outcome; $("#out-model").value = state.out.model; setView("s-out", "chart"); renderOutlook(); });
+}
 $("#find-reset").addEventListener("click", () => {
   Object.assign(state.find, DEFAULTS.find); $("#find-outcome").value = state.find.outcome; setView("s-find", "chart"); renderFindings();
 });
